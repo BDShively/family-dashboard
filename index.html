@@ -1,30 +1,31 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard</title>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard</title>
 
-<!-- Tailwind CDN + custom colors -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          brand: {
-            bg:   '#0b1220',  /* page background */
-            card: '#0f1a2b',  /* cards */
-            ink:  '#e6eefc',  /* primary text */
-            mute: '#9db1d1',  /* secondary text */
-            ac:   '#2b6cb0'   /* accent blue */
-          }
-        },
-        boxShadow: {
-          card: '0 8px 24px rgba(0,0,0,0.35)'
-        },
-        borderRadius: { xl2: '1.25rem' }
+  <!-- Tailwind CDN + dark blue/gray theme -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              bg:   '#0b1220',  /* page background */
+              card: '#0f1a2b',  /* cards */
+              ink:  '#e6eefc',  /* primary text */
+              mute: '#9db1d1',  /* secondary text */
+              ac:   '#2b6cb0'   /* accent blue */
+            }
+          },
+          boxShadow: { card: '0 8px 24px rgba(0,0,0,0.35)' },
+          borderRadius: { xl2: '1.25rem' }
+        }
       }
     }
-  }
-</script>
+  </script>
 </head>
 
 <body class="min-h-screen bg-brand-bg text-brand-ink">
@@ -32,9 +33,9 @@
     <header class="flex items-center justify-between mb-8">
       <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">Family Dashboard</h1>
       <div id="auth" class="flex gap-2"></div>
-</header>
+    </header>
 
-    <!-- Auth gate -->
+    <!-- Login gate (shown when not signed in) -->
     <section id="loginGate" class="hidden">
       <div class="max-w-md mx-auto bg-brand-card/80 backdrop-blur rounded-xl2 p-6 shadow-card border border-white/5">
         <h2 class="text-xl font-medium mb-4">Sign in</h2>
@@ -48,7 +49,7 @@
       </div>
     </section>
 
-    <!-- Main content (hidden until authed) -->
+    <!-- Main content (visible after sign-in) -->
     <main id="content" class="hidden">
       <nav class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
@@ -88,20 +89,17 @@
 
   <!-- Scripts -->
   <script type="module">
-    import { auth, onAuthStateChanged, signIn, signOutUser } from "../js/firebase-init.js";
+    import { auth, onAuthStateChanged, signIn, signOutUser } from "/family-dashboard/js/firebase-init.js";
 
     const $ = (s)=>document.querySelector(s);
     const authBox = $('#auth');
     const loginGate = $('#loginGate');
     const content = $('#content');
 
-    // Require sign-in on dashboard: show login gate until authed
     onAuthStateChanged(auth, (u)=>{
       if (!u) {
         content.classList.add('hidden');
         loginGate.classList.remove('hidden');
-
-        // render compact auth in header too
         authBox.innerHTML = '';
         const f = $('#login');
         if (f) {
@@ -113,8 +111,6 @@
         }
         return;
       }
-
-      // Authed view
       loginGate.classList.add('hidden');
       content.classList.remove('hidden');
       authBox.innerHTML = `
@@ -125,4 +121,6 @@
       $('#out').onclick = () => signOutUser();
     });
   </script>
-</body></html>
+</body>
+</html>
+
