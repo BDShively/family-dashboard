@@ -1,33 +1,32 @@
 import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  where,
-  serverTimestamp
+  collection, addDoc, getDocs, query, where, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 import { db, auth } from "/family-dashboard/js/firebase-init.js";
 
-/** Pixel-based rectangles. Fill with your captured values. */
-const STALL_MAP_PX = [
-  // Example:
-  // { id:"S01", number:1, x:120, y:90, w:150, h:140 },
-];
+/** Fill with your pixel rectangles */
+const STALL_MAP_PX = [ /* { id:"S01", number:1, x:..., y:..., w:..., h:... }, ... */ ];
 
-/** Public initializer used by stalls.html */
+/** Colors */
+const C_OCC  = '#2563eb';  // occupied
+const C_SCH  = '#f59e0b';  // scheduled
+const C_EMP  = '#6b7280';  // empty
+const C_STROKE = 'rgba(230,238,252,0.9)';
+
 export function initBarnStalls(sel) {
-  const img = document.querySelector(sel.imageSelector);
-  const svg = document.querySelector(sel.overlaySelector);
+  const img   = document.querySelector(sel.imageSelector);
+  const svg   = document.querySelector(sel.overlaySelector);
   const filterSel = document.querySelector(sel.statusFilterSelector);
-  const clearBtn = document.querySelector(sel.clearSelector);
-  const occBody = document.querySelector(sel.occBodySelector);
-  const selInfo = document.querySelector(sel.selInfoSelector);
-  const addBtn  = document.querySelector(sel.addBtnSelector);
-  const modal   = document.querySelector(sel.modalSelector);
-  const form    = document.querySelector(sel.formSelector);
+  const clearBtn  = document.querySelector(sel.clearSelector);
+  const occBody   = document.querySelector(sel.occBodySelector);
+  const selInfo   = document.querySelector(sel.selInfoSelector);
+  const addBtn    = document.querySelector(sel.addBtnSelector);
+  const modal     = document.querySelector(sel.modalSelector);
+  const form      = document.querySelector(sel.formSelector);
+  const summaryEl = document.getElementById('stallSummary');
 
   let currentStall = null;
   let currentStatusFilter = 'all';
+  let occupancyByStall = new Map(); // stallId -> {occupied:boolean, scheduled:boolean}
 
   function renderOverlay(){
     const vbW = img.naturalWidth || img.clientWidth;
@@ -38,7 +37,7 @@ export function initBarnStalls(sel) {
     svg.innerHTML = STALL_MAP_PX.map(s => `
       <g class="stall" data-id="${s.id}" data-number="${s.number}">
         <rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}"
-              fill="rgba(43,108,176,0.25)" stroke="rgba(230,238,252,0.9)" stroke-width="2"></rect>
+              fill="${C_EMP}33" stroke="${C_STROKE}" stroke-width="2"></rect>
         <text x="${s.x + s.w/2}" y="${s.y + s.h/2}" text-anchor="middle" dominant-baseline="central"
               fill="#e6eefc" font-size="${Math.max(12, Math.min(s.w,s.h)/2)}">${s.number}</text>
       </g>
@@ -49,23 +48,58 @@ export function initBarnStalls(sel) {
       g.addEventListener('click', ()=>{
         const id = g.getAttribute('data-id');
         const num = Number(g.getAttribute('data-number'));
-        currentStall = { id, number: num };
-        svg.querySelectorAll('rect').forEach(r=>r.setAttribute('stroke','rgba(230,238,252,0.9)'));
-        g.querySelector('rect').setAttribute('stroke','#2b6cb0');
-        loadOccupancies();
+        currentStall = { id, number:num };
+        svg.querySelectorAll('g.stall rect').forEach(r=>r.setAttribute('stroke', C_STROKE));
+        g.querySelector('rect').setAttribute('stroke', '#2b6cb0');
+        loadOccupancies(); // table reload for selection
       });
     });
+
+    paintOverlay(); // colorize after drawing
+  }
+
+  function paintOverlay(){
+    // compute summary
+    let occ=0, sch=0, emp=0;
+    STALL_MAP_PX.forEach(s=>{
+      const st = occupancyByStall.get(s.id) || {occupied:false, scheduled:false};
+      const rect = svg.querySelector(`g.stall[data-id="${s.id}"] rect`);
+      if (!rect) return;
+      if (st.occupied) { rect.setAttribute('fill', C_OCC+'55'); occ++; }
+      else if (st.scheduled) { rect.setAttribute('fill', C_SCH+'55'); sch++; }
+      else { rect.setAttribute('fill', C_EMP+'33'); emp++; }
+    });
+    if (summaryEl) summaryEl.textContent = `Occupied ${occ} · Scheduled ${sch} · Empty ${emp} / ${STALL_MAP_PX.length}`;
+  }
+
+  async function refreshOverlayStatus(){
+    // build map from Firestore
+    occupancyByStall = new Map();
+    const base = collection(db, 'barn_occupancies');
+    const snap = await getDocs(query(base));
+    const today = new Date().toISOString().slice(0,10);
+
+    snap.forEach(d=>{
+      const x = d.data();
+      const st = occupancyByStall.get(x.stallId) || {occupied:false, scheduled:false};
+      const isActive = x.status === 'active' && (!x.end_date || x.end_date >= today);
+      const isSch    = x.status === 'scheduled';
+      st.occupied = st.occupied || isActive;
+      st.scheduled = st.scheduled || isSch;
+      occupancyByStall.set(x.stallId, st);
+    });
+
+    paintOverlay();
   }
 
   async function loadOccupancies(){
-    const base = collection(db, 'barn_occupancies'); // top-level collection
+    const base = collection(db, 'barn_occupancies');
     let snap;
     if (currentStall) snap = await getDocs(query(base, where('stallId','==', currentStall.id)));
     else snap = await getDocs(query(base));
 
     const rows = [];
     const today = new Date().toISOString().slice(0,10);
-
     snap.forEach(d=>{
       const x = d.data();
       const active = x.status === 'active' && (!x.end_date || x.end_date >= today);
@@ -96,6 +130,7 @@ export function initBarnStalls(sel) {
     `).join('') || `<tr><td class="p-3 text-brand-mute" colspan="7">No matching records.</td></tr>`;
   }
 
+  // Add occupancy
   addBtn.onclick = ()=>{
     if (!currentStall) { alert('Select a stall first.'); return; }
     document.getElementById('mStall').value = `${currentStall.number} (${currentStall.id})`;
@@ -126,18 +161,22 @@ export function initBarnStalls(sel) {
 
     await addDoc(collection(db, 'barn_occupancies'), payload);
     closeDialog(modal);
-    loadOccupancies();
+    await loadOccupancies();
+    await refreshOverlayStatus();
   };
 
   filterSel.onchange = ()=>{ currentStatusFilter = filterSel.value; loadOccupancies(); };
   clearBtn.onclick = ()=>{
     currentStall = null;
-    svg.querySelectorAll('rect').forEach(r=>r.setAttribute('stroke','rgba(230,238,252,0.9)'));
+    svg.querySelectorAll('g.stall rect').forEach(r=>r.setAttribute('stroke', C_STROKE));
     loadOccupancies();
   };
 
-  img.addEventListener('load', renderOverlay);
-  if (img.complete) renderOverlay();
+  img.addEventListener('load', async ()=>{
+    renderOverlay();
+    await refreshOverlayStatus();
+  });
+  if (img.complete) { renderOverlay(); refreshOverlayStatus(); }
   loadOccupancies();
 }
 
