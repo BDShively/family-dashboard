@@ -4,7 +4,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 import { db, auth } from "/family-dashboard/js/firebase-init.js";
 
-/** Pixel rectangles. Paste your boxes here. */
+/** Config */
+const SHOW_LABELS = false; // hide overlay numbers so image numbers show through
+
+/** Pixel rectangles (your capture) */
 const STALL_MAP_PX = [
   { id:"S01", number:1,  x:874, y:80,  w:113, h:100 },
   { id:"S02", number:2,  x:753, y:80,  w:118, h:100 },
@@ -26,7 +29,6 @@ const STALL_MAP_PX = [
   { id:"S18", number:18, x:874, y:259, w:115, h:104 },
 ];
 
-
 /** Colors */
 const C_OCC  = '#2563eb';
 const C_SCH  = '#f59e0b';
@@ -44,7 +46,7 @@ export function initBarnStalls(sel){
   const modal     = document.querySelector(sel.modalSelector);
   const form      = document.querySelector(sel.formSelector);
 
-  // Overlay chips
+  // On-image chips
   const chipsWrap = document.getElementById('stallChips');
   const chipFilterBtns = document.querySelectorAll('button.chip[data-filter]');
   const clearSel2 = document.getElementById('clearSel2');
@@ -61,8 +63,8 @@ export function initBarnStalls(sel){
       <g class="stall" data-id="${s.id}" data-number="${s.number}">
         <rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}"
           fill="${C_EMP}33" stroke="${C_STROKE}" stroke-width="2"></rect>
-        <text x="${s.x+s.w/2}" y="${s.y+s.h/2}" text-anchor="middle" dominant-baseline="central"
-          fill="#e6eefc" font-size="${Math.max(12,Math.min(s.w,s.h)/2)}">${s.number}</text>
+        ${SHOW_LABELS ? `<text x="${s.x+s.w/2}" y="${s.y+s.h/2}" text-anchor="middle" dominant-baseline="central"
+            fill="#9db1d1" fill-opacity="0.25" font-size="${Math.max(12,Math.min(s.w,s.h)/2)}">${s.number}</text>` : ``}
       </g>`).join('');
 
     svg.querySelectorAll('g.stall').forEach(g=>{
@@ -98,8 +100,7 @@ export function initBarnStalls(sel){
     }
 
     chipsWrap?.querySelectorAll('button.chip').forEach(b=>{
-      if (currentStall && b.dataset.stall===currentStall.id) b.classList.add('active');
-      else b.classList.remove('active');
+      b.classList.toggle('active', !!currentStall && b.dataset.stall===currentStall.id);
     });
 
     chipFilterBtns.forEach(b=>{
@@ -133,9 +134,9 @@ export function initBarnStalls(sel){
     snap.forEach(d=>{
       const x=d.data();
       const active=x.status==='active' && (!x.end_date || x.end_date>=today);
-      const scheduled=x.status==='scheduled';
+      const sch=x.status==='scheduled';
       if(currentStatusFilter==='active' && !active) return;
-      if(currentStatusFilter==='scheduled' && !scheduled) return;
+      if(currentStatusFilter==='scheduled' && !sch) return;
       if(currentStatusFilter==='empty') return;
       rows.push({id:d.id,...x});
     });
@@ -165,7 +166,7 @@ export function initBarnStalls(sel){
     loadOccupancies();
   }
 
-  // events
+  // UI events
   chipFilterBtns.forEach(b=>{
     b.onclick=()=>{ currentStatusFilter=b.dataset.filter; paintOverlay(); loadOccupancies(); };
   });
@@ -173,7 +174,7 @@ export function initBarnStalls(sel){
   filterSel.onchange = ()=>{ currentStatusFilter=filterSel.value; paintOverlay(); loadOccupancies(); };
   clearBtn.onclick = ()=>{ currentStall=null; paintOverlay(); loadOccupancies(); };
 
-  // modal + save
+  // Modal + save
   addBtn.onclick=()=>{
     if(!currentStall){ alert('Select a stall first.'); return; }
     document.getElementById('mStall').value=`${currentStall.number} (${currentStall.id})`;
@@ -200,7 +201,7 @@ export function initBarnStalls(sel){
     await refreshOverlayStatus();
   };
 
-  // init
+  // Init
   img.addEventListener('load', async ()=>{ renderOverlay(); await refreshOverlayStatus(); });
   if (img.complete){ renderOverlay(); refreshOverlayStatus(); }
   loadOccupancies();
