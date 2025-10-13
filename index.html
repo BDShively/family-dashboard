@@ -1,56 +1,128 @@
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard</title>
+
+<!-- Tailwind CDN + custom colors -->
 <script src="https://cdn.tailwindcss.com"></script>
-</head><body class="bg-slate-50 text-slate-900 min-h-screen">
-<div class="max-w-4xl mx-auto p-4">
-  <header class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold">Family Dashboard</h1>
-    <div id="auth" class="flex gap-2"></div>
-  </header>
-
-  <nav class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-    <a class="p-4 bg-white rounded-lg shadow" href="./index.html">Dashboard</a>
-    <a class="p-4 bg-white rounded-lg shadow" href="./family/index.html">Family</a>
-    <a class="p-4 bg-white rounded-lg shadow" href="./finances/index.html">Finances</a>
-    <a class="p-4 bg-white rounded-lg shadow" href="./vehicles/index.html">Vehicles</a>
-    <a class="p-4 bg-white rounded-lg shadow" href="../eads/tracker/index.html">EADS → Tracker</a>
-    <a class="p-4 bg-white rounded-lg shadow" href="../barn/manager/index.html">Barn → Manager</a>
-    <a class="p-4 bg-white rounded-lg shadow" href="../barn/employees/index.html">Barn → Employees</a>
-    <a class="p-4 bg-white rounded-lg shadow" href="../barn/eggs/index.html">Barn → Egg Tracker</a>
-  </nav>
-
-  <main class="bg-white rounded-lg shadow p-4">
-    <h2 class="text-xl font-semibold mb-2">Welcome</h2>
-    <p class="text-sm text-slate-600">Use the cards above.</p>
-  </main>
-</div>
-
-<script type="module">
-  import { auth, onAuthStateChanged, signIn, signOutUser } from "../js/firebase-init.js";
-
-  const authBox = document.getElementById('auth');
-  function render(u){
-    if(!u){
-      authBox.innerHTML = `
-        <form id="login" class="flex gap-2">
-          <input id="email" class="border p-2 rounded" placeholder="email" type="email" required>
-          <input id="pw" class="border p-2 rounded" placeholder="password" type="password" required>
-          <button class="px-3 py-2 bg-blue-600 text-white rounded">Sign in</button>
-        </form>`;
-      document.getElementById('login').onsubmit = async (e)=>{
-        e.preventDefault();
-        try{ await signIn(email.value, pw.value); }catch(err){ alert(err.message); }
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: {
+            bg:   '#0b1220',  /* page background */
+            card: '#0f1a2b',  /* cards */
+            ink:  '#e6eefc',  /* primary text */
+            mute: '#9db1d1',  /* secondary text */
+            ac:   '#2b6cb0'   /* accent blue */
+          }
+        },
+        boxShadow: {
+          card: '0 8px 24px rgba(0,0,0,0.35)'
+        },
+        borderRadius: { xl2: '1.25rem' }
       }
-    } else {
-      authBox.innerHTML = `
-        <div class="flex items-center gap-2">
-          <span class="text-sm">${u.email}</span>
-          <button id="out" class="px-3 py-2 bg-slate-700 text-white rounded">Sign out</button>
-        </div>`;
-      document.getElementById('out').onclick = ()=>signOutUser();
     }
   }
-  onAuthStateChanged(auth, render);
 </script>
+</head>
+
+<body class="min-h-screen bg-brand-bg text-brand-ink">
+  <div class="max-w-6xl mx-auto p-4 md:p-8">
+    <header class="flex items-center justify-between mb-8">
+      <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">Family Dashboard</h1>
+      <div id="auth" class="flex gap-2"></div>
+</header>
+
+    <!-- Auth gate -->
+    <section id="loginGate" class="hidden">
+      <div class="max-w-md mx-auto bg-brand-card/80 backdrop-blur rounded-xl2 p-6 shadow-card border border-white/5">
+        <h2 class="text-xl font-medium mb-4">Sign in</h2>
+        <form id="login" class="grid gap-3">
+          <input id="email" type="email" placeholder="email" required
+                 class="bg-black/30 border border-white/10 rounded-lg p-3 outline-none focus:border-brand-ac">
+          <input id="pw" type="password" placeholder="password" required
+                 class="bg-black/30 border border-white/10 rounded-lg p-3 outline-none focus:border-brand-ac">
+          <button class="mt-1 px-4 py-3 rounded-lg bg-brand-ac text-white hover:opacity-90">Sign in</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Main content (hidden until authed) -->
+    <main id="content" class="hidden">
+      <nav class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
+           href="./index.html">Dashboard</a>
+        <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
+           href="./family/index.html">Family</a>
+        <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
+           href="./finances/index.html">Finances</a>
+        <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
+           href="./vehicles/index.html">Vehicles</a>
+        <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
+           href="../eads/tracker/index.html">EADS → Tracker</a>
+        <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
+           href="../barn/manager/index.html">Barn → Manager</a>
+        <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
+           href="../barn/employees/index.html">Barn → Employees</a>
+        <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60 transition"
+           href="../barn/eggs/index.html">Barn → Egg Tracker</a>
+      </nav>
+
+      <section class="grid gap-4 md:grid-cols-3">
+        <div class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5">
+          <h3 class="font-medium mb-1">Next events</h3>
+          <p class="text-brand-mute text-sm">Coming soon</p>
+        </div>
+        <div class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5">
+          <h3 class="font-medium mb-1">This month</h3>
+          <p class="text-brand-mute text-sm">Income, expenses, net</p>
+        </div>
+        <div class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5">
+          <h3 class="font-medium mb-1">Barn & eggs</h3>
+          <p class="text-brand-mute text-sm">Utilization and 7-day eggs</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module">
+    import { auth, onAuthStateChanged, signIn, signOutUser } from "../js/firebase-init.js";
+
+    const $ = (s)=>document.querySelector(s);
+    const authBox = $('#auth');
+    const loginGate = $('#loginGate');
+    const content = $('#content');
+
+    // Require sign-in on dashboard: show login gate until authed
+    onAuthStateChanged(auth, (u)=>{
+      if (!u) {
+        content.classList.add('hidden');
+        loginGate.classList.remove('hidden');
+
+        // render compact auth in header too
+        authBox.innerHTML = '';
+        const f = $('#login');
+        if (f) {
+          f.onsubmit = async (e)=>{
+            e.preventDefault();
+            try { await signIn($('#email').value, $('#pw').value); }
+            catch (err) { alert(err.message); }
+          };
+        }
+        return;
+      }
+
+      // Authed view
+      loginGate.classList.add('hidden');
+      content.classList.remove('hidden');
+      authBox.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-brand-mute">${u.email}</span>
+          <button id="out" class="px-3 py-2 rounded-lg bg-black/30 border border-white/10 hover:border-brand-ac/60">Sign out</button>
+        </div>`;
+      $('#out').onclick = () => signOutUser();
+    });
+  </script>
 </body></html>
