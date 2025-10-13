@@ -3,8 +3,39 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 import { db, auth } from "/family-dashboard/js/firebase-init.js";
 
-/** Fill with your pixel rectangles */
-const STALL_MAP_PX = [ /* { id:"S01", number:1, x:..., y:..., w:..., h:... }, ... */ ];
+// Paste your percent entries here:
+const PCT = [
+  { id:"S01", number:1,  x:84.97, y:7.86, w:11.54, h:9.82 },
+  { id:"S02", number:2,  x:73.42, y:7.86, w:11.54, h:9.82 },
+  { id:"S03", number:3,  x:48.13, y:7.86, w:13.02, h:9.82 },
+  { id:"S04", number:4,  x:28.98, y:7.86, w:12.28, h:10.07 },
+  { id:"S05", number:5,  x:4.17,  y:7.61, w:12.52, h:10.07 },
+  { id:"S06", number:6,  x:4.17,  y:25.29, w:12.52, h:10.31 },
+  { id:"S07", number:7,  x:16.70, y:25.05, w:14.00, h:10.07 },
+  { id:"S08", number:8,  x:30.70, y:24.80, w:14.24, h:10.31 },
+  { id:"S09", number:9,  x:44.45, y:25.29, w:14.00, h:10.07 },
+  { id:"S10", number:10, x:50.59, y:35.36, w:10.56, h:11.30 },
+  { id:"S11", number:11, x:52.55, y:46.90, w:11.05, h:11.79 },
+  { id:"S12", number:12, x:52.55, y:58.69, w:11.30, h:12.03 },
+  { id:"S13", number:13, x:52.55, y:70.72, w:11.05, h:11.05 },
+  { id:"S14", number:14, x:52.80, y:81.77, w:11.05, h:6.63  },
+  { id:"S15", number:15, x:73.42, y:46.90, w:12.77, h:16.21 },
+  { id:"S16", number:16, x:80.79, y:35.61, w:10.81, h:11.30 },
+  { id:"S17", number:17, x:73.67, y:25.05, w:11.30, h:10.56 },
+  { id:"S18", number:18, x:84.97, y:25.29, w:11.30, h:10.31 }
+];
+// Convert to pixels using the image's natural size
+const img = document.querySelector('#floorImg');
+const W = img.naturalWidth, H = img.naturalHeight;
+const PX = PCT.map(s => ({
+  id:s.id, number:s.number,
+  x: Math.round(s.x/100*W),
+  y: Math.round(s.y/100*H),
+  w: Math.round(s.w/100*W),
+  h: Math.round(s.h/100*H)
+}));
+console.log('Paste into STALL_MAP_PX:', PX);
+
 
 /** Colors */
 const C_OCC  = '#2563eb';  // occupied
