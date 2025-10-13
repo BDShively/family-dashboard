@@ -43,14 +43,13 @@
           </div>
         </div>
 
-        <!-- Responsive image + SVG overlay -->
+        <!-- Image + SVG overlay (pixel-accurate) -->
         <div class="relative w-full">
-          <!-- Use ONE of these src values. Start with relative. If 404, swap to absolute. -->
-          <img id="floorImg" src="../../assets/barn-floor.jpg" alt="Barn floor" class="w-full rounded-lg border border-white/10">
-          <!-- <img id="floorImg" src="/family-dashboard/assets/barn-floor.jpg" alt="Barn floor" class="w-full rounded-lg border border-white/10"> -->
-          <svg id="overlay" class="absolute inset-0 w-full h-full"></svg>
+          <!-- change filename if needed -->
+          <img id="floorImg" src="/family-dashboard/assets/barn_layout.jpg" alt="Barn floor" class="w-full rounded-lg border border-white/10">
+          <svg id="overlay" class="absolute inset-0 w-full h-full" preserveAspectRatio="none"></svg>
         </div>
-        <p class="text-xs text-brand-mute mt-2">Image path: <code>../../assets/barn-floor.jpg</code>. Rename if needed.</p>
+        <p class="text-xs text-brand-mute mt-2">Image path: <code>/family-dashboard/assets/barn_layout.jpg</code>.</p>
       </div>
 
       <!-- Details -->
