@@ -1,136 +1,56 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Family Dashboard</title>
-  <!-- Tailwind via CDN for quick styling -->
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen bg-slate-50 text-slate-900">
-  <div class="max-w-4xl mx-auto p-4">
-    <header class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">Family Dashboard</h1>
-      <div id="auth-area" class="flex gap-2">
-        <!-- Filled by JS: login form or user email + sign out -->
-      </div>
-    </header>
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head><body class="bg-slate-50 text-slate-900 min-h-screen">
+<div class="max-w-4xl mx-auto p-4">
+  <header class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Family Dashboard</h1>
+    <div id="auth" class="flex gap-2"></div>
+  </header>
 
-    <!-- Main nav -->
-    <nav class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-      <a href="#/" class="p-4 bg-white rounded-lg shadow">Dashboard</a>
-      <a href="#/family/calendar" class="p-4 bg-white rounded-lg shadow">Family → Calendar</a>
-      <a href="#/family/finances" class="p-4 bg-white rounded-lg shadow">Family → Finances</a>
-      <a href="#/family/vehicles" class="p-4 bg-white rounded-lg shadow">Family → Vehicles</a>
-      <a href="#/eads/tracker" class="p-4 bg-white rounded-lg shadow">EADS → Tracker</a>
-      <a href="#/barn/manager" class="p-4 bg-white rounded-lg shadow">Barn → Manager</a>
-      <a href="#/barn/employees" class="p-4 bg-white rounded-lg shadow">Barn → Employees</a>
-      <a href="#/barn/eggs" class="p-4 bg-white rounded-lg shadow">Barn → Egg Tracker</a>
-    </nav>
+  <nav class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+    <a class="p-4 bg-white rounded-lg shadow" href="./index.html">Dashboard</a>
+    <a class="p-4 bg-white rounded-lg shadow" href="./family/index.html">Family</a>
+    <a class="p-4 bg-white rounded-lg shadow" href="./finances/index.html">Finances</a>
+    <a class="p-4 bg-white rounded-lg shadow" href="./vehicles/index.html">Vehicles</a>
+    <a class="p-4 bg-white rounded-lg shadow" href="../eads/tracker/index.html">EADS → Tracker</a>
+    <a class="p-4 bg-white rounded-lg shadow" href="../barn/manager/index.html">Barn → Manager</a>
+    <a class="p-4 bg-white rounded-lg shadow" href="../barn/employees/index.html">Barn → Employees</a>
+    <a class="p-4 bg-white rounded-lg shadow" href="../barn/eggs/index.html">Barn → Egg Tracker</a>
+  </nav>
 
-    <!-- Content -->
-    <main id="page" class="bg-white rounded-lg shadow p-4">
-      <!-- Filled by JS based on location.hash -->
-    </main>
-  </div>
+  <main class="bg-white rounded-lg shadow p-4">
+    <h2 class="text-xl font-semibold mb-2">Welcome</h2>
+    <p class="text-sm text-slate-600">Use the cards above.</p>
+  </main>
+</div>
 
-  <!-- Firebase v11 ESM modules from CDN -->
-  <script type="module" src="./js/firebase-init.js"></script>
-  <script type="module">
-    import { auth, db, onAuthStateChanged, signIn, signOutUser, testWrite } from './js/firebase-init.js'
-    import { renderFinances } from './js/finances.js';
+<script type="module">
+  import { auth, onAuthStateChanged, signIn, signOutUser } from "../js/firebase-init.js";
 
-    // Simple auth UI
-    const authArea = document.getElementById('auth-area')
-    function renderAuth(user) {
-      if (!user) {
-        authArea.innerHTML = `
-          <form id="login" class="flex gap-2">
-            <input id="email" class="border p-2 rounded" placeholder="email" type="email" required />
-            <input id="pw" class="border p-2 rounded" placeholder="password" type="password" required />
-            <button class="px-3 py-2 bg-blue-600 text-white rounded">Sign in</button>
-          </form>
-        `
-        document.getElementById('login').onsubmit = async (e) => {
-          e.preventDefault()
-          const email = document.getElementById('email').value
-          const pw = document.getElementById('pw').value
-          try { await signIn(email, pw) } catch (err) { alert(err.message) }
-        }
-      } else {
-        authArea.innerHTML = `
-          <div class="flex items-center gap-2">
-            <span class="text-sm">Signed in: ${user.email}</span>
-            <button id="signout" class="px-3 py-2 bg-slate-700 text-white rounded">Sign out</button>
-          </div>
-        `
-        document.getElementById('signout').onclick = signOutUser
+  const authBox = document.getElementById('auth');
+  function render(u){
+    if(!u){
+      authBox.innerHTML = `
+        <form id="login" class="flex gap-2">
+          <input id="email" class="border p-2 rounded" placeholder="email" type="email" required>
+          <input id="pw" class="border p-2 rounded" placeholder="password" type="password" required>
+          <button class="px-3 py-2 bg-blue-600 text-white rounded">Sign in</button>
+        </form>`;
+      document.getElementById('login').onsubmit = async (e)=>{
+        e.preventDefault();
+        try{ await signIn(email.value, pw.value); }catch(err){ alert(err.message); }
       }
+    } else {
+      authBox.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-sm">${u.email}</span>
+          <button id="out" class="px-3 py-2 bg-slate-700 text-white rounded">Sign out</button>
+        </div>`;
+      document.getElementById('out').onclick = ()=>signOutUser();
     }
-
-    onAuthStateChanged(auth, (u) => {
-      renderAuth(u)
-      route() // rerender page when auth changes
-    })
-
-    // Very small hash router
-    const page = document.getElementById('page')
-    function route() {
-      const hash = location.hash || '#/'
-      const authed = !!auth.currentUser
-      if (!authed) {
-        page.innerHTML = `<p>Please sign in to continue.</p>`
-        return
-      }
-      if (hash === '#/') {
-        page.innerHTML = `
-          <h2 class="text-xl font-semibold mb-2">Dashboard</h2>
-          <button id="testWrite" class="px-3 py-2 bg-green-600 text-white rounded">Test Firestore write</button>
-          <p class="text-sm mt-2 text-slate-600">If this works, your Firebase rules and key restrictions are correct.</p>
-        `
-        document.getElementById('testWrite').onclick = async () => {
-          try {
-            await testWrite()
-            alert('Write ok')
-          } catch (e) {
-            alert('Write failed: ' + e.message)
-          }
-        }
-        return
-      }
-      if (hash.startsWith('#/family/calendar')) {
-        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Calendar</h2><p>Coming next.</p>`
-        return
-      }
-      if (hash.startsWith('#/family/finances')) {
-        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Loading…</h2>`;
-        renderFinances(page);
-        return;
-      }
-      if (hash.startsWith('#/family/vehicles')) {
-        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Vehicles</h2><p>Coming next.</p>`
-        return
-      }
-      if (hash.startsWith('#/eads/tracker')) {
-        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">EADS Tracker</h2><p>Coming next.</p>`
-        return
-      }
-      if (hash.startsWith('#/barn/manager')) {
-        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Barn Manager</h2><p>Coming next.</p>`
-        return
-      }
-      if (hash.startsWith('#/barn/employees')) {
-        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Barn Employees</h2><p>Coming next.</p>`
-        return
-      }
-      if (hash.startsWith('#/barn/eggs')) {
-        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Egg Tracker</h2><p>Coming next.</p>`
-        return
-      }
-      page.innerHTML = `<p>Not found.</p>`
-    }
-    window.addEventListener('hashchange', route)
-    route()
-  </script>
-</body>
-</html>
+  }
+  onAuthStateChanged(auth, render);
+</script>
+</body></html>
