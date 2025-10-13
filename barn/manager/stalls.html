@@ -47,9 +47,8 @@
           </div>
         </div>
 
-        <!-- Image + SVG overlay + chips -->
+        <!-- Image + SVG overlay + top filter chips -->
         <div class="relative w-full">
-          <!-- If this 404s, change to ../../assets/barn_layout.jpg -->
           <img id="floorImg" src="/family-dashboard/assets/barn_layout.jpg" alt="Barn floor" class="w-full rounded-lg border border-white/10">
           <svg id="overlay" class="absolute inset-0 w-full h-full" preserveAspectRatio="none"></svg>
 
@@ -62,11 +61,6 @@
               <button class="chip" data-filter="empty">Empty</button>
               <button id="clearSel2" class="chip">Clear</button>
             </div>
-          </div>
-
-          <!-- Stall chips -->
-          <div class="absolute bottom-2 left-2 right-2 pointer-events-none">
-            <div id="stallChips" class="flex flex-wrap gap-2 pointer-events-auto max-h-28 overflow-auto"></div>
           </div>
         </div>
 
@@ -129,10 +123,8 @@
     </dialog>
   </div>
 
-  <!-- Scripts -->
   <script type="module">
     import { auth, onAuthStateChanged, signOutUser } from "/family-dashboard/js/firebase-init.js";
-    // If this import 404s, change to: "../../js/barn-stalls.js"
     import { initBarnStalls } from "/family-dashboard/js/barn-stalls.js";
 
     onAuthStateChanged(auth, (u)=>{
