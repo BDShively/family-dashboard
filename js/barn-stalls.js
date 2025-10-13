@@ -4,10 +4,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 import { db, auth } from "/family-dashboard/js/firebase-init.js";
 
-/** Config */
-const SHOW_LABELS = false; // hide overlay numbers so image numbers show through
+const SHOW_LABELS = false; // keep stall numbers invisible on overlay
 
-/** Pixel rectangles (your capture) */
+// Your pixel rectangles
 const STALL_MAP_PX = [
   { id:"S01", number:1,  x:874, y:80,  w:113, h:100 },
   { id:"S02", number:2,  x:753, y:80,  w:118, h:100 },
@@ -29,7 +28,6 @@ const STALL_MAP_PX = [
   { id:"S18", number:18, x:874, y:259, w:115, h:104 },
 ];
 
-/** Colors */
 const C_OCC  = '#2563eb';
 const C_SCH  = '#f59e0b';
 const C_EMP  = '#6b7280';
@@ -46,8 +44,6 @@ export function initBarnStalls(sel){
   const modal     = document.querySelector(sel.modalSelector);
   const form      = document.querySelector(sel.formSelector);
 
-  // On-image chips
-  const chipsWrap = document.getElementById('stallChips');
   const chipFilterBtns = document.querySelectorAll('button.chip[data-filter]');
   const clearSel2 = document.getElementById('clearSel2');
 
@@ -72,14 +68,6 @@ export function initBarnStalls(sel){
       g.onclick=()=>{ selectStall(g.getAttribute('data-id')); };
     });
 
-    if (chipsWrap && !chipsWrap.dataset.ready){
-      chipsWrap.innerHTML = STALL_MAP_PX.map(s=>`<button class="chip" data-stall="${s.id}">#${s.number}</button>`).join('');
-      chipsWrap.dataset.ready='1';
-      chipsWrap.querySelectorAll('button.chip').forEach(b=>{
-        b.onclick=()=>selectStall(b.dataset.stall);
-      });
-    }
-
     paintOverlay();
   }
 
@@ -98,10 +86,6 @@ export function initBarnStalls(sel){
       const r=svg.querySelector(`g.stall[data-id="${currentStall.id}"] rect`);
       if (r) r.setAttribute('stroke','#2b6cb0');
     }
-
-    chipsWrap?.querySelectorAll('button.chip').forEach(b=>{
-      b.classList.toggle('active', !!currentStall && b.dataset.stall===currentStall.id);
-    });
 
     chipFilterBtns.forEach(b=>{
       b.classList.toggle('active', b.dataset.filter===currentStatusFilter);
