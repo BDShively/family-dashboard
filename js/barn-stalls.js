@@ -6,8 +6,26 @@ import { db, auth } from "/family-dashboard/js/firebase-init.js";
 
 /** Pixel rectangles. Paste your boxes here. */
 const STALL_MAP_PX = [
-  // { id:"S01", number:1, x:120, y:90, w:150, h:140 },
+  { id:"S01", number:1,  x:874, y:80,  w:113, h:100 },
+  { id:"S02", number:2,  x:753, y:80,  w:118, h:100 },
+  { id:"S03", number:3,  x:495, y:80,  w:133, h:100 },
+  { id:"S04", number:4,  x:298, y:82,  w:128, h:98  },
+  { id:"S05", number:5,  x:43,  y:80,  w:128, h:100 },
+  { id:"S06", number:6,  x:43,  y:257, w:129, h:106 },
+  { id:"S07", number:7,  x:172, y:257, w:142, h:106 },
+  { id:"S08", number:8,  x:314, y:259, w:146, h:104 },
+  { id:"S09", number:9,  x:460, y:257, w:138, h:106 },
+  { id:"S10", number:10, x:522, y:364, w:104, h:117 },
+  { id:"S11", number:11, x:538, y:481, w:117, h:122 },
+  { id:"S12", number:12, x:540, y:603, w:113, h:122 },
+  { id:"S13", number:13, x:540, y:725, w:113, h:113 },
+  { id:"S14", number:14, x:540, y:838, w:113, h:67  },
+  { id:"S15", number:15, x:753, y:483, w:129, h:166 },
+  { id:"S16", number:16, x:828, y:364, w:113, h:115 },
+  { id:"S17", number:17, x:753, y:257, w:120, h:106 },
+  { id:"S18", number:18, x:874, y:259, w:115, h:104 },
 ];
+
 
 /** Colors */
 const C_OCC  = '#2563eb';
