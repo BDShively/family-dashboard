@@ -38,6 +38,7 @@
   <script type="module" src="./js/firebase-init.js"></script>
   <script type="module">
     import { auth, db, onAuthStateChanged, signIn, signOutUser, testWrite } from './js/firebase-init.js'
+    import { renderFinances } from './js/finances.js';
 
     // Simple auth UI
     const authArea = document.getElementById('auth-area')
@@ -102,8 +103,9 @@
         return
       }
       if (hash.startsWith('#/family/finances')) {
-        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Finances</h2><p>Coming next.</p>`
-        return
+        page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Loading…</h2>`;
+        renderFinances(page);
+        return;
       }
       if (hash.startsWith('#/family/vehicles')) {
         page.innerHTML = `<h2 class="text-xl font-semibold mb-2">Vehicles</h2><p>Coming next.</p>`
