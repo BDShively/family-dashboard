@@ -1,14 +1,16 @@
 // /js/barn-stalls.js
 import {
-  getFirestore, collection, addDoc, getDocs, query, where, doc, getDoc, serverTimestamp
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 import { db, auth } from "/family-dashboard/js/firebase-init.js";
 
-/**
- * Configure your stall rectangles in PERCENT coordinates relative to the image.
- * x,y = top-left percent (0–100), w,h = size percent.
- * Fill these with your real positions for 18 stalls.
- */
+/** Replace with your final rectangles (percent coords). */
 const STALL_MAP = [
   { id:"S01", number:1,  x:84.97, y:7.86, w:11.54, h:9.82 },
   { id:"S02", number:2,  x:73.42, y:7.86, w:11.54, h:9.82 },
@@ -30,25 +32,24 @@ const STALL_MAP = [
   { id:"S18", number:18, x:84.97, y:25.29, w:11.30, h:10.31 }
 ];
 
-
-export function initBarnStalls(selectors){
-  const img = document.querySelector(selectors.imageSelector);
-  const svg = document.querySelector(selectors.overlaySelector);
-  const filterSel = document.querySelector(selectors.statusFilterSelector);
-  const clearBtn = document.querySelector(selectors.clearSelector);
-  const occBody = document.querySelector(selectors.occBodySelector);
-  const selInfo = document.querySelector(selectors.selInfoSelector);
-  const addBtn  = document.querySelector(selectors.addBtnSelector);
-  const modal   = document.querySelector(selectors.modalSelector);
-  const form    = document.querySelector(selectors.formSelector);
+/** Public initializer used by stalls.html */
+export function initBarnStalls(sel) {
+  const img = document.querySelector(sel.imageSelector);
+  const svg = document.querySelector(sel.overlaySelector);
+  const filterSel = document.querySelector(sel.statusFilterSelector);
+  const clearBtn = document.querySelector(sel.clearSelector);
+  const occBody = document.querySelector(sel.occBodySelector);
+  const selInfo = document.querySelector(sel.selInfoSelector);
+  const addBtn  = document.querySelector(sel.addBtnSelector);
+  const modal   = document.querySelector(sel.modalSelector);
+  const form    = document.querySelector(sel.formSelector);
 
   let currentStall = null;
   let currentStatusFilter = 'all';
 
-  // Render overlay rects
+  // Draw interactive rectangles
   function renderOverlay(){
-    const vb = '0 0 100 100'; // percent space
-    svg.setAttribute('viewBox', vb);
+    svg.setAttribute('viewBox', '0 0 100 100');
     svg.innerHTML = STALL_MAP.map(s => `
       <g class="stall" data-id="${s.id}" data-number="${s.number}">
         <rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}"
@@ -57,14 +58,13 @@ export function initBarnStalls(selectors){
               fill="#e6eefc" font-size="3.6">${s.number}</text>
       </g>
     `).join('');
-    // enable clicks
+
     svg.querySelectorAll('g.stall').forEach(g=>{
       g.style.cursor='pointer';
-      g.style.pointerEvents='auto';
-      g.addEventListener('click', ()=> {
+      g.addEventListener('click', ()=>{
         const id = g.getAttribute('data-id');
-        const num = g.getAttribute('data-number');
-        currentStall = { id, number: Number(num) };
+        const num = Number(g.getAttribute('data-number'));
+        currentStall = { id, number: num };
         svg.querySelectorAll('rect').forEach(r=>r.setAttribute('stroke','rgba(230,238,252,0.8)'));
         g.querySelector('rect').setAttribute('stroke','#2b6cb0');
         loadOccupancies();
@@ -72,40 +72,36 @@ export function initBarnStalls(selectors){
     });
   }
 
-  // Load occupancies for selection + filter
+  // Load occupancies from Firestore (top-level collection)
   async function loadOccupancies(){
-    let qBase = collection(db, 'barn_occupancies');
-    // Firestore structure: /barn/occupancies docs (flat)
-    // Filter on stall when selected
-    const qs = [];
-    if (currentStall) qs.push(where('stallId', '==', currentStall.id));
+    const base = collection(db, 'barn_occupancies');
+    let snap;
+    if (currentStall) {
+      snap = await getDocs(query(base, where('stallId','==', currentStall.id)));
+    } else {
+      snap = await getDocs(query(base));
+    }
 
-    // We cannot add dynamic ORs easily; do simple get and filter in client for status.
-    const snap = await getDocs(q(qBase)); // fallback query wrapper below
     const rows = [];
+    const today = new Date().toISOString().slice(0,10);
+
     snap.forEach(d=>{
       const x = d.data();
-      // client filter by stall if not already done
-      if (currentStall && x.stallId !== currentStall.id) return;
-
-      const nowISO = new Date().toISOString().slice(0,10);
-      const active = !x.end_date || x.end_date >= nowISO;
-      const isScheduled = x.status === 'scheduled';
-      const isActive = x.status === 'active' && active;
-      const isEmpty = false; // empties shown when no rows and a stall is selected
-
-      if (currentStatusFilter === 'active' && !isActive) return;
-      if (currentStatusFilter === 'scheduled' && !isScheduled) return;
-      if (currentStatusFilter === 'empty') return; // handled below by message
-
+      const active = x.status === 'active' && (!x.end_date || x.end_date >= today);
+      const scheduled = x.status === 'scheduled';
+      if (currentStatusFilter === 'active' && !active) return;
+      if (currentStatusFilter === 'scheduled' && !scheduled) return;
+      if (currentStatusFilter === 'empty') return; // empty handled separately
       rows.push({ id:d.id, ...x });
     });
 
-    // Update selection info
-    if (currentStall) {
-      selInfo.textContent = `Stall ${currentStall.number} (${currentStall.id})`;
-    } else {
-      selInfo.textContent = 'All stalls';
+    // Selection label
+    selInfo.textContent = currentStall ? `Stall ${currentStall.number} (${currentStall.id})` : 'All stalls';
+
+    // If "Empty" filter and a stall selected with zero rows, show hint
+    if (currentStatusFilter === 'empty' && currentStall && rows.length===0){
+      occBody.innerHTML = `<tr><td class="p-3 text-emerald-300" colspan="7">Stall ${currentStall.number} appears empty.</td></tr>`;
+      return;
     }
 
     // Render table
@@ -120,27 +116,16 @@ export function initBarnStalls(selectors){
         <td class="p-3">$${Number(r.board_rate_monthly||0).toFixed(2)}</td>
       </tr>
     `).join('') || `<tr><td class="p-3 text-brand-mute" colspan="7">No matching records.</td></tr>`;
-
-    // If "Empty" filter and a stall selected with zero rows, show message
-    if (currentStatusFilter === 'empty' && currentStall && rows.length===0){
-      occBody.innerHTML = `<tr><td class="p-3 text-emerald-300" colspan="7">Stall ${currentStall.number} appears empty.</td></tr>`;
-    }
   }
 
-  // Add occupancy flow
+  // Add occupancy modal
   addBtn.onclick = ()=>{
     if (!currentStall) { alert('Select a stall first.'); return; }
-    const mStall = document.getElementById('mStall');
-    mStall.value = `${currentStall.number} (${currentStall.id})`;
-    if (typeof modal.showModal === 'function') modal.showModal();
-    else modal.setAttribute('open','');
-    // defaults
+    document.getElementById('mStall').value = `${currentStall.number} (${currentStall.id})`;
     document.getElementById('mStart').value = new Date().toISOString().slice(0,10);
+    openDialog(modal);
   };
-  document.getElementById('mCancel').onclick = ()=> {
-    if (typeof modal.close === 'function') modal.close();
-    else modal.removeAttribute('open');
-  };
+  document.getElementById('mCancel').onclick = ()=> closeDialog(modal);
 
   form.onsubmit = async (e)=>{
     e.preventDefault();
@@ -149,41 +134,40 @@ export function initBarnStalls(selectors){
 
     const payload = {
       stallId: currentStall.id,
-      horse:  valueOf('mHorse'),
-      owner:  valueOf('mOwner'),
-      start_date: valueOf('mStart'),
-      end_date: valueOf('mEnd') || null,
-      board_rate_monthly: parseFloat(valueOf('mRate')||'0'),
-      feed_program: valueOf('mFeed') || null,
-      training_program: valueOf('mTrain') || null,
-      status: 'active', // default
+      horse:  val('mHorse'),
+      owner:  val('mOwner'),
+      start_date: val('mStart'),
+      end_date: val('mEnd') || null,
+      board_rate_monthly: parseFloat(val('mRate')||'0'),
+      feed_program: val('mFeed') || null,
+      training_program: val('mTrain') || null,
+      status: 'active',
       createdAt: serverTimestamp(),
       by: auth.currentUser.email
     };
-    // Basic checks
     if (!payload.horse || !payload.owner || !payload.start_date) { alert('Fill required fields.'); return; }
 
     await addDoc(collection(db, 'barn_occupancies'), payload);
-    if (typeof modal.close === 'function') modal.close(); else modal.removeAttribute('open');
-    await loadOccupancies();
+    closeDialog(modal);
+    loadOccupancies();
   };
 
   // Controls
   filterSel.onchange = ()=>{ currentStatusFilter = filterSel.value; loadOccupancies(); };
-  clearBtn.onclick = ()=>{ currentStall = null; // clear highlight
+  clearBtn.onclick = ()=>{
+    currentStall = null;
     svg.querySelectorAll('rect').forEach(r=>r.setAttribute('stroke','rgba(230,238,252,0.8)'));
     loadOccupancies();
   };
 
-  // Kickoff
+  // Init
   img.addEventListener('load', renderOverlay);
   if (img.complete) renderOverlay();
   loadOccupancies();
 }
 
-// helpers
-function valueOf(id){ return document.getElementById(id).value.trim(); }
+/* ----------------- helpers ----------------- */
+function val(id){ return document.getElementById(id).value.trim(); }
 function esc(s){ return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-// tiny query wrapper to allow plain getDocs(collection(...))
-function q(col){ return query(col); }
+function openDialog(d){ if (typeof d.showModal==='function') d.showModal(); else d.setAttribute('open',''); }
+function closeDialog(d){ if (typeof d.close==='function') d.close(); else d.removeAttribute('open'); }
