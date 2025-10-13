@@ -74,7 +74,7 @@ export function initBarnStalls(selectors){
 
   // Load occupancies for selection + filter
   async function loadOccupancies(){
-    let qBase = collection(db, 'barn', 'occupancies');
+    let qBase = collection(db, 'barn_occupancies');
     // Firestore structure: /barn/occupancies docs (flat)
     // Filter on stall when selected
     const qs = [];
@@ -163,7 +163,7 @@ export function initBarnStalls(selectors){
     // Basic checks
     if (!payload.horse || !payload.owner || !payload.start_date) { alert('Fill required fields.'); return; }
 
-    await addDoc(collection(db, 'barn', 'occupancies'), payload);
+    await addDoc(collection(db, 'barn_occupancies'), payload);
     if (typeof modal.close === 'function') modal.close(); else modal.removeAttribute('open');
     await loadOccupancies();
   };
