@@ -1,12 +1,13 @@
 // /js/barn-stalls.js
 import {
-  collection, addDoc, getDocs, query, where, serverTimestamp
+  collection, addDoc, getDocs, query, where, serverTimestamp,
+  doc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 import { db, auth } from "/family-dashboard/js/firebase-init.js";
 
-const SHOW_LABELS = false; // keep stall numbers invisible on overlay
+const SHOW_LABELS = false;
 
-// Your pixel rectangles
+// your rectangles
 const STALL_MAP_PX = [
   { id:"S01", number:1,  x:874, y:80,  w:113, h:100 },
   { id:"S02", number:2,  x:753, y:80,  w:118, h:100 },
@@ -48,7 +49,12 @@ export function initBarnStalls(sel){
   const clearSel2 = document.getElementById('clearSel2');
 
   let currentStall=null, currentStatusFilter='all';
-  let occupancyByStall=new Map();
+  let occupancyByStall=new Map(); // stallId -> {state:'active'|'scheduled'|'empty'}
+
+  function stallStateForId(id){
+    const s = occupancyByStall.get(id);
+    return s?.state || 'empty';
+  }
 
   function renderOverlay(){
     const vbW=img.naturalWidth||img.clientWidth, vbH=img.naturalHeight||img.clientHeight;
@@ -73,20 +79,30 @@ export function initBarnStalls(sel){
 
   function paintOverlay(){
     STALL_MAP_PX.forEach(s=>{
-      const st=occupancyByStall.get(s.id)||{occupied:false,scheduled:false};
+      const state = stallStateForId(s.id);
       const rect=svg.querySelector(`g.stall[data-id="${s.id}"] rect`);
       if(!rect) return;
-      if(st.occupied) rect.setAttribute('fill', C_OCC+'55');
-      else if(st.scheduled) rect.setAttribute('fill', C_SCH+'55');
+      // base color by state
+      if(state==='active') rect.setAttribute('fill', C_OCC+'55');
+      else if(state==='scheduled') rect.setAttribute('fill', C_SCH+'55');
       else rect.setAttribute('fill', C_EMP+'33');
+
+      // dim non-matching when a filter is active
+      let dim = false;
+      if (currentStatusFilter==='active') dim = state!=='active';
+      else if (currentStatusFilter==='scheduled') dim = state!=='scheduled';
+      else if (currentStatusFilter==='empty') dim = state!=='empty';
+      rect.setAttribute('opacity', dim ? '0.28' : '1');
     });
 
+    // selection stroke
     svg.querySelectorAll('g.stall rect').forEach(r=>r.setAttribute('stroke',C_STROKE));
     if(currentStall){
       const r=svg.querySelector(`g.stall[data-id="${currentStall.id}"] rect`);
       if (r) r.setAttribute('stroke','#2b6cb0');
     }
 
+    // chip active states
     chipFilterBtns.forEach(b=>{
       b.classList.toggle('active', b.dataset.filter===currentStatusFilter);
     });
@@ -94,16 +110,23 @@ export function initBarnStalls(sel){
 
   async function refreshOverlayStatus(){
     occupancyByStall=new Map();
-    const snap=await getDocs(query(collection(db,'barn_occupancies')));
+    const base=collection(db,'barn_occupancies');
+    const snap=await getDocs(query(base));
     const today=new Date().toISOString().slice(0,10);
+
+    // start with all empty
+    STALL_MAP_PX.forEach(s=>occupancyByStall.set(s.id,{state:'empty'}));
+
     snap.forEach(d=>{
       const x=d.data();
-      const st=occupancyByStall.get(x.stallId)||{occupied:false,scheduled:false};
-      const active=x.status==='active' && (!x.end_date || x.end_date>=today);
-      const sch   =x.status==='scheduled';
-      st.occupied=st.occupied||active; st.scheduled=st.scheduled||sch;
-      occupancyByStall.set(x.stallId,st);
+      const st = occupancyByStall.get(x.stallId) || {state:'empty'};
+      const isActive = x.status==='active' && (!x.end_date || x.end_date >= today);
+      const isSched  = x.status==='scheduled';
+      if (isActive) st.state = 'active';
+      else if (st.state!=='active' && isSched) st.state = 'scheduled';
+      occupancyByStall.set(x.stallId, st);
     });
+
     paintOverlay();
   }
 
@@ -127,10 +150,6 @@ export function initBarnStalls(sel){
 
     selInfo.textContent=currentStall?`Stall ${currentStall.number} (${currentStall.id})`:'All stalls';
 
-    if(currentStatusFilter==='empty' && currentStall && rows.length===0){
-      occBody.innerHTML=`<tr><td class="p-3 text-emerald-300" colspan="7">Stall ${currentStall.number} appears empty.</td></tr>`;
-      return;
-    }
     occBody.innerHTML = rows.map(r=>`
       <tr class="hover:bg-black/20">
         <td class="p-3">${r.stallId||''}</td>
@@ -140,7 +159,15 @@ export function initBarnStalls(sel){
         <td class="p-3">${r.start_date||''}</td>
         <td class="p-3">${r.end_date||''}</td>
         <td class="p-3">$${Number(r.board_rate_monthly||0).toFixed(2)}</td>
-      </tr>`).join('') || `<tr><td class="p-3 text-brand-mute" colspan="7">No matching records.</td></tr>`;
+        <td class="p-3">
+          <button class="px-2 py-1 text-xs rounded bg-black/30 border border-white/10 mr-2" data-edit="${r.id}">Edit</button>
+          <button class="px-2 py-1 text-xs rounded bg-red-600/70 text-white" data-del="${r.id}">Delete</button>
+        </td>
+      </tr>`).join('') || `<tr><td class="p-3 text-brand-mute" colspan="8">No matching records.</td></tr>`;
+
+    // wire actions
+    occBody.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEdit(b.getAttribute('data-edit')));
+    occBody.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>doDelete(b.getAttribute('data-del')));
   }
 
   function selectStall(stallId){
@@ -150,42 +177,101 @@ export function initBarnStalls(sel){
     loadOccupancies();
   }
 
-  // UI events
-  chipFilterBtns.forEach(b=>{
-    b.onclick=()=>{ currentStatusFilter=b.dataset.filter; paintOverlay(); loadOccupancies(); };
-  });
-  clearSel2?.addEventListener('click', ()=>{ currentStall=null; paintOverlay(); loadOccupancies(); });
-  filterSel.onchange = ()=>{ currentStatusFilter=filterSel.value; paintOverlay(); loadOccupancies(); };
-  clearBtn.onclick = ()=>{ currentStall=null; paintOverlay(); loadOccupancies(); };
+  // modal helpers
+  const hid = (id)=>document.getElementById(id);
 
-  // Modal + save
   addBtn.onclick=()=>{
     if(!currentStall){ alert('Select a stall first.'); return; }
-    document.getElementById('mStall').value=`${currentStall.number} (${currentStall.id})`;
-    document.getElementById('mStart').value=new Date().toISOString().slice(0,10);
+    hid('mDocId').value = '';
+    hid('mTitle').textContent = 'New Occupancy';
+    hid('mStall').value = `${currentStall.number} (${currentStall.id})`;
+    hid('mStatus').value = 'active';
+    hid('mHorse').value = '';
+    hid('mOwner').value = '';
+    hid('mStart').value = new Date().toISOString().slice(0,10);
+    hid('mEnd').value = '';
+    hid('mRate').value = '';
+    hid('mFeed').value = '';
+    hid('mTrain').value = '';
+    hid('mDelete').classList.add('hidden');
     openDialog(modal);
   };
   document.getElementById('mCancel').onclick=()=>closeDialog(modal);
-  form.onsubmit=async (e)=>{
-    e.preventDefault();
-    if(!auth.currentUser) return alert('Sign in first.');
-    if(!currentStall) return alert('Select a stall.');
-    const payload={
-      stallId:currentStall.id,
-      horse:val('mHorse'), owner:val('mOwner'),
-      start_date:val('mStart'), end_date:val('mEnd')||null,
-      board_rate_monthly:parseFloat(val('mRate')||'0'),
-      feed_program:val('mFeed')||null, training_program:val('mTrain')||null,
-      status:'active', createdAt:serverTimestamp(), by:auth.currentUser.email
-    };
-    if(!payload.horse||!payload.owner||!payload.start_date){ alert('Fill required fields.'); return; }
-    await addDoc(collection(db,'barn_occupancies'), payload);
+  document.getElementById('mDelete').onclick=async ()=>{
+    const id = hid('mDocId').value;
+    if (!id) return;
+    if (!confirm('Delete this occupancy?')) return;
+    await deleteDoc(doc(db,'barn_occupancies', id));
     closeDialog(modal);
     await loadOccupancies();
     await refreshOverlayStatus();
   };
 
-  // Init
+  async function openEdit(docId){
+    // fetch doc by reusing current table snapshot if desired; simplest is query again
+    const base=collection(db,'barn_occupancies');
+    const snap=await getDocs(query(base, where('__name__','==', docId)));
+    if (snap.empty) return alert('Record not found.');
+    const d = snap.docs[0]; const x = d.data();
+    const stall = STALL_MAP_PX.find(s=>s.id===x.stallId) || {number:'?'};
+
+    hid('mDocId').value = d.id;
+    hid('mTitle').textContent = 'Edit Occupancy';
+    hid('mStall').value = `${stall.number} (${x.stallId})`;
+    hid('mStatus').value = x.status || 'active';
+    hid('mHorse').value = x.horse || '';
+    hid('mOwner').value = x.owner || '';
+    hid('mStart').value = x.start_date || '';
+    hid('mEnd').value = x.end_date || '';
+    hid('mRate').value = Number(x.board_rate_monthly||0);
+    hid('mFeed').value = x.feed_program || '';
+    hid('mTrain').value = x.training_program || '';
+    hid('mDelete').classList.remove('hidden');
+    openDialog(modal);
+  }
+
+  form.onsubmit=async (e)=>{
+    e.preventDefault();
+    if(!auth.currentUser) return alert('Sign in first.');
+    if(!currentStall && !hid('mDocId').value) return alert('Select a stall.');
+
+    const payload={
+      stallId: currentStall ? currentStall.id : (hid('mStall').value.match(/\((.+)\)$/)?.[1] || null),
+      status: hid('mStatus').value,
+      horse: val('mHorse'),
+      owner: val('mOwner'),
+      start_date: val('mStart'),
+      end_date: val('mEnd') || null,
+      board_rate_monthly: parseFloat(val('mRate')||'0'),
+      feed_program: val('mFeed') || null,
+      training_program: val('mTrain') || null,
+      by: auth.currentUser.email
+    };
+    if (!payload.stallId || !payload.horse || !payload.owner || !payload.start_date){
+      alert('Fill required fields.'); return;
+    }
+
+    const id = hid('mDocId').value;
+    if (id){
+      await updateDoc(doc(db,'barn_occupancies', id), payload);
+    } else {
+      payload.createdAt = serverTimestamp();
+      await addDoc(collection(db,'barn_occupancies'), payload);
+    }
+    closeDialog(modal);
+    await loadOccupancies();
+    await refreshOverlayStatus();
+  };
+
+  // filter events
+  chipFilterBtns.forEach(b=>{
+    b.onclick=()=>{ currentStatusFilter=b.dataset.filter; paintOverlay(); loadOccupancies(); };
+  });
+  clearSel2?.addEventListener('click', ()=>{ currentStall=null; currentStatusFilter='all'; filterSel.value='all'; paintOverlay(); loadOccupancies(); });
+  filterSel.onchange = ()=>{ currentStatusFilter=filterSel.value; paintOverlay(); loadOccupancies(); };
+  clearBtn.onclick = ()=>{ currentStall=null; currentStatusFilter='all'; filterSel.value='all'; paintOverlay(); loadOccupancies(); };
+
+  // init
   img.addEventListener('load', async ()=>{ renderOverlay(); await refreshOverlayStatus(); });
   if (img.complete){ renderOverlay(); refreshOverlayStatus(); }
   loadOccupancies();
