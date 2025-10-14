@@ -1,66 +1,77 @@
-<!-- /family-dashboard/index.html -->
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Family Dashboard</title>
-  <link rel="stylesheet" href="/family-dashboard/css/base.css">
-
+<title>Sign in</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
   :root{--bg:#0b1220;--bg2:#0f1a2b;--card:#111832;--muted:#9db1d1;--fg:#e6eefc}
-  *{box-sizing:border-box} body{margin:0;font-family:system-ui,Segoe UI,Inter,Roboto,Arial;
-  background:linear-gradient(160deg,var(--bg),var(--bg2));color:var(--fg)}
-  a{color:inherit;text-decoration:none}
-  .wrap{max-width:1200px;margin:auto;padding:18px}
-  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-  .btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
-  .muted{color:var(--muted);font-size:12px}
-  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:600px){.grid{grid-template-columns:1fr}}
-  .tile{display:flex;justify-content:space-between;align-items:center;padding:16px;border:1px solid #2b325a;border-radius:14px;background:#111832}
-  .tile:hover{outline:2px solid #2b6cb0}
-  h1{margin:6px 0 12px}
+  body{margin:0;font-family:Inter,system-ui;display:grid;place-items:center;min-height:100vh;
+       background:linear-gradient(160deg,var(--bg),var(--bg2));color:var(--fg)}
+  .card{width:min(420px,92vw);background:var(--card);border:1px solid #2b325a;border-radius:16px;padding:18px}
+  h1{margin:0 0 8px}
+  .muted{color:var(--muted);font-size:12px;margin-bottom:12px}
+  .row{display:grid;grid-template-columns:1fr;gap:10px;margin:10px 0}
+  input{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330;color:#e6eefc}
+  .btn{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
+  .split{display:flex;gap:8px}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="muted">Family Dashboard</div>
-    <div id="auth"></div>
-  </header>
+  <div class="card">
+    <h1>Sign in</h1>
+    <div class="muted">Use Google or email + password.</div>
 
-  <h1>Home</h1>
-  <p class="muted">Choose an area.</p>
+    <button id="google" class="btn">Continue with Google</button>
 
-  <div class="grid">
-    <a class="tile" href="/family-dashboard/family/index.html"><span>Family</span><span class="muted">Calendar</span></a>
-    <a class="tile" href="/family-dashboard/finances/index.html"><span>Finances</span><span class="muted">Income · Bills</span></a>
-    <a class="tile" href="/family-dashboard/vehicles/index.html"><span>Vehicles</span><span class="muted">Maintenance</span></a>
-    <a class="tile" href="/family-dashboard/eads/tracker/index.html"><span>EADS</span><span class="muted">Work tracker</span></a>
-    <!-- Single Barn link → its own dashboard -->
-    <a class="tile" href="/family-dashboard/barn/index.html"><span>Barn Manager</span><span class="muted">Stalls · Employees · Eggs</span></a>
-   <!-- UPDATE: /family-dashboard/index.html -->
-<!-- Find the grid of tiles and insert this tile anywhere in it -->
-<a class="tile" href="/family-dashboard/fitness/index.html">
-  <span>Fitness</span><span class="muted">Workouts · Nutrition</span>
-</a>
- 
+    <div class="row">
+      <input id="email" type="email" placeholder="you@example.com">
+      <input id="pass" type="password" placeholder="Password">
+      <div class="split">
+        <button id="emailSignIn" class="btn">Sign in</button>
+        <button id="emailRegister" class="btn">Register</button>
+      </div>
+    </div>
+
+    <div id="msg" class="muted"></div>
   </div>
-</div>
 
 <script type="module">
-  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
-  onAuthStateChanged(auth,(u)=>{
-    const c=document.getElementById('auth');
-    if(!u){
-      c.innerHTML = `<a class="btn" href="/family-dashboard/main/index.html">Sign in</a>`;
-    }else{
-      c.innerHTML = `<div class="muted" style="display:flex;gap:8px;align-items:center">
-        <span>${u.email}</span><a class="btn" href="#" id="signout">Sign out</a></div>`;
-      document.getElementById('signout').onclick=(e)=>{e.preventDefault();signOutUser();};
-    }
-  });
+  import { auth, onAuthStateChanged } from "/family-dashboard/js/firebase-init.js";
+  import {
+    GoogleAuthProvider, signInWithPopup,
+    signInWithEmailAndPassword, createUserWithEmailAndPassword
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+
+  // If already signed in, go to dashboard
+  onAuthStateChanged(auth, u => { if(u) location.href = "/family-dashboard/index.html"; });
+
+  const msg = (t)=> document.getElementById('msg').textContent = t || "";
+
+  document.getElementById('google').onclick = async ()=>{
+    try{
+      await signInWithPopup(auth, new GoogleAuthProvider());
+      location.href="/family-dashboard/index.html";
+    }catch(e){ msg(e.message); }
+  };
+
+  document.getElementById('emailSignIn').onclick = async ()=>{
+    const email = document.getElementById('email').value.trim();
+    const pass  = document.getElementById('pass').value;
+    try{
+      await signInWithEmailAndPassword(auth, email, pass);
+      location.href="/family-dashboard/index.html";
+    }catch(e){ msg(e.message); }
+  };
+
+  document.getElementById('emailRegister').onclick = async ()=>{
+    const email = document.getElementById('email').value.trim();
+    const pass  = document.getElementById('pass').value;
+    try{
+      await createUserWithEmailAndPassword(auth, email, pass);
+      location.href="/family-dashboard/index.html";
+    }catch(e){ msg(e.message); }
+  };
 </script>
 </body>
 </html>
