@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EADS · Phone Directory</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+  :root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+  body{font-family:system-ui,Inter;margin:0;padding:18px;color:var(--fg);background:var(--bg)}
+  a{color:inherit;text-decoration:none}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+  .btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:800px){.row{grid-template-columns:1fr}}
+  label{font-size:12px;color:var(--muted)}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:var(--fg)}
+  textarea{min-height:70px}
+  .muted{color:var(--muted);font-size:12px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+  th{color:var(--muted);cursor:pointer}
+  .actions{display:flex;gap:6px;flex-wrap:wrap}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);padding:2px 8px;border-radius:999px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div><a class="btn" href="./index.html">&larr; EADS</a></div>
+  <div id="auth"></div>
+</header>
+
+<h1>Phone Directory</h1>
+
+<!-- Form -->
+<div class="card">
+  <div class="row">
+    <div><label>Name</label><input id="pd_name" placeholder="Last, First"></div>
+    <div><label>Unit / Org</label><input id="pd_unit" placeholder="e.g., 123 WG / OSS"></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Role / Title</label><input id="pd_role" placeholder="e.g., Commander"></div>
+    <div><label>Priority</label>
+      <select id="pd_pri"><option>Normal</option><option>Key</option><option>Emergency</option></select>
+    </div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Phone</label><input id="pd_phone" placeholder="###-###-####"></div>
+    <div><label>Email</label><input id="pd_email" type="email" placeholder="name@domain.mil"></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Location</label><input id="pd_loc" placeholder="Bldg / Room"></div>
+    <div><label>Tags (comma separated)</label><input id="pd_tags" placeholder="e.g., command, security, after-hours"></div>
+  </div>
+  <div style="margin-top:10px"><label>Notes</label><textarea id="pd_notes" placeholder="Any details or alternates"></textarea></div>
+  <div class="actions" style="margin-top:12px">
+    <button class="btn" id="pd_save">Save</button>
+    <button class="btn" id="pd_update" disabled>Update</button>
+    <button class="btn" id="pd_delete" disabled>Delete</button>
+    <span id="pd_sel" class="muted"></span>
+  </div>
+</div>
+
+<!-- Filters + List -->
+<div class="card">
+  <div class="row">
+    <div>
+      <label>Unit Filter</label>
+      <input id="pd_f_unit" placeholder="Contains…">
+    </div>
+    <div>
+      <label>Tag Filter</label>
+      <input id="pd_f_tag" placeholder="Exact tag…">
+    </div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div>
+      <label>Priority</label>
+      <select id="pd_f_pri">
+        <option value="">All</option>
+        <option>Emergency</option>
+        <option>Key</option>
+        <option>Normal</option>
+      </select>
+    </div>
+    <div>
+      <label>Search</label>
+      <input id="pd_search" placeholder="Name, role, phone, email, notes">
+    </div>
+  </div>
+
+  <div id="pd_count" class="muted" style="margin:8px 0"></div>
+
+  <table id="pd_tbl">
+    <thead><tr>
+      <th data-k="name">Name</th>
+      <th data-k="unit">Unit</th>
+      <th data-k="role">Role</th>
+      <th data-k="priority">Pri</th>
+      <th data-k="phone">Phone</th>
+      <th data-k="email">Email</th>
+      <th data-k="location">Loc</th>
+      <th data-k="tags">Tags</th>
+      <th>Actions</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  import { gate,$ } from './eads.js'; gate();
+  import { makeFSList } from './eads-fs.js';
+
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{
+    if(!u){ location.href=LOGIN; return; }
+    const c=document.getElementById('auth');
+    c.innerHTML = `<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
+  });
+
+  // combined filter inputs as one source for makeFSList
+  const comboFilter = {
+    get value(){
+      return JSON.stringify({
+        unit: $('#pd_f_unit').value.trim().toLowerCase(),
+        tag:  $('#pd_f_tag').value.trim().toLowerCase(),
+        pri:  $('#pd_f_pri').value
+      });
+    },
+    set oninput(fn){
+      ['#pd_f_unit','#pd_f_tag','#pd_f_pri','#pd_search'].forEach(sel=>{
+        document.querySelector(sel).addEventListener('input',fn);
+      });
+    }
+  };
+
+  makeFSList({
+    store:'eads_directory',
+    $thead: $('#pd_tbl thead'), $tbody: $('#pd_tbl tbody'),
+    $save: $('#pd_save'), $update: $('#pd_update'), $delete: $('#pd_delete'),
+    $selInfo: $('#pd_sel'), $search: $('#pd_search'), $filter: comboFilter,
+    defaultSort:'name',
+    filterFn:(r,vstr)=>{
+      const v = JSON.parse(vstr);
+      const txt = (s)=> (s||'').toString().toLowerCase();
+      const inUnit = !v.unit || txt(r.unit).includes(v.unit);
+      const hasTag = !v.tag || (Array.isArray(r.tags) && r.tags.map(t=>t.toLowerCase()).includes(v.tag));
+      const priOK  = !v.pri || r.priority===v.pri;
+      return inUnit && hasTag && priOK;
+    },
+    rowHTML:r=>{
+      const phone = r.phone ? `<a href="tel:${r.phone}">${r.phone}</a>` : '';
+      const email = r.email ? `<a href="mailto:${r.email}">${r.email}</a>` : '';
+      const tags = (r.tags&&r.tags.length)? r.tags.map(t=>`<span class="chip">${t}</span>`).join(' '):'';
+      return `<tr data-id="${r.id}">
+        <td>${r.name||''}</td>
+        <td>${r.unit||''}</td>
+        <td>${r.role||''}</td>
+        <td>${r.priority||''}</td>
+        <td>${phone}</td>
+        <td>${email}</td>
+        <td>${r.location||''}</td>
+        <td>${tags}</td>
+        <td class="actions">
+          <button class="btn" data-action="edit">Edit</button>
+          <button class="btn" data-action="delete">Delete</button>
+        </td>
+      </tr>`;
+    },
+    getForm:()=>({
+      name: $('#pd_name').value.trim(),
+      unit: $('#pd_unit').value.trim(),
+      role: $('#pd_role').value.trim(),
+      priority: $('#pd_pri').value,
+      phone: $('#pd_phone').value.trim(),
+      email: $('#pd_email').value.trim(),
+      location: $('#pd_loc').value.trim(),
+      tags: ($('#pd_tags').value.trim()? $('#pd_tags').value.split(',').map(s=>s.trim()).filter(Boolean): []),
+      notes: $('#pd_notes').value.trim()
+    }),
+    setForm:r=>{
+      $('#pd_name').value = r.name||'';
+      $('#pd_unit').value = r.unit||'';
+      $('#pd_role').value = r.role||'';
+      $('#pd_pri').value  = r.priority||'Normal';
+      $('#pd_phone').value= r.phone||'';
+      $('#pd_email').value= r.email||'';
+      $('#pd_loc').value  = r.location||'';
+      $('#pd_tags').value = (r.tags&&r.tags.length?r.tags.join(', '):'');
+      $('#pd_notes').value= r.notes||'';
+    },
+    clearForm:()=>{
+      ['#pd_name','#pd_unit','#pd_role','#pd_phone','#pd_email','#pd_loc','#pd_tags','#pd_notes'].forEach(s=>$(s).value='');
+      $('#pd_pri').value='Normal';
+      $('#pd_update').disabled=$('#pd_delete').disabled=true;
+      $('#pd_sel').textContent='';
+    },
+    afterRender:(ctx)=>{
+      // wire row buttons for edit/delete
+      ctx.$tbody.querySelectorAll('tr').forEach(tr=>{
+        const id = tr.getAttribute('data-id');
+        const edit = tr.querySelector('[data-action="edit"]');
+        const del  = tr.querySelector('[data-action="delete"]');
+        edit && (edit.onclick=()=>ctx.selectRow(id));
+        del && (del.onclick=()=>ctx.deleteRow(id));
+      });
+      // count
+      document.getElementById('pd_count').textContent = `${ctx.rows.length} result(s)`;
+    }
+  });
+</script>
+</body>
+</html>
