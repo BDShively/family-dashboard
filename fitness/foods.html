@@ -1,0 +1,96 @@
+<!-- /family-dashboard/fitness/foods.html -->
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Fitness · Foods</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+body{margin:0;font-family:system-ui,Inter;background:#0b1220;color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--muted)}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
+</style></head><body>
+<header>
+  <div><a class="btn" href="/family-dashboard/fitness/index.html">&larr; Fitness</a></div>
+  <div id="auth"></div>
+</header>
+
+<h1>Foods</h1>
+
+<div class="card">
+  <div class="row">
+    <div><label>Name</label><input id="f_name" placeholder="e.g., Chicken Breast"></div>
+    <div><label>Serving Size</label><input id="f_serving" placeholder="e.g., 100 g"></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Calories</label><input id="f_cal" type="number" step="1"></div>
+    <div><label>Protein (g)</label><input id="f_pro" type="number" step="0.1"></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Carbs (g)</label><input id="f_carb" type="number" step="0.1"></div>
+    <div><label>Fat (g)</label><input id="f_fat" type="number" step="0.1"></div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="btn" id="f_save">Save</button>
+    <button class="btn" id="f_update" disabled>Update</button>
+    <button class="btn" id="f_delete" disabled>Delete</button>
+    <button class="btn" id="f_seed">Load Demo</button>
+    <span id="f_sel" class="muted"></span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div><label>Search</label><input id="f_search" placeholder="Name"></div>
+  </div>
+  <div id="f_count" class="muted" style="margin:8px 0"></div>
+  <table id="f_tbl">
+    <thead><tr>
+      <th data-k="name">Name</th><th data-k="serving">Serving</th><th data-k="cal">Cal</th><th data-k="pro">P</th><th data-k="carb">C</th><th data-k="fat">F</th>
+    </tr></thead><tbody></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  import { makeFSList, $, addMany } from "./fitness.js";
+
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;} authUI(u.email); });
+
+  function authUI(email){
+    const c=document.getElementById('auth');
+    c.innerHTML=`<span class="muted">${email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
+  }
+
+  const ctx = makeFSList({
+    store:'fitness_foods',
+    $thead: $('#f_tbl thead'), $tbody: $('#f_tbl tbody'),
+    $save: $('#f_save'), $update: $('#f_update'), $delete: $('#f_delete'),
+    $selInfo: $('#f_sel'), $search: $('#f_search'),
+    defaultSort:'name',
+    rowHTML:r=>`<tr data-id="${r.id}"><td>${r.name||''}</td><td>${r.serving||''}</td><td>${int(r.cal)}</td><td>${numfmt(r.pro)}</td><td>${numfmt(r.carb)}</td><td>${numfmt(r.fat)}</td></tr>`,
+    getForm:()=>({ name:$('#f_name').value.trim(), serving:$('#f_serving').value.trim(), cal:int($('#f_cal').value), pro:num($('#f_pro').value), carb:num($('#f_carb').value), fat:num($('#f_fat').value) }),
+    setForm:r=>{ $('#f_name').value=r.name||''; $('#f_serving').value=r.serving||''; $('#f_cal').value=r.cal??''; $('#f_pro').value=r.pro??''; $('#f_carb').value=r.carb??''; $('#f_fat').value=r.fat??''; },
+    clearForm:()=>{ ['#f_name','#f_serving','#f_cal','#f_pro','#f_carb','#f_fat'].forEach(s=>$(s).value=''); }
+  });
+
+  $('#f_seed').onclick = async ()=>{
+    await addMany('fitness_foods', [
+      {name:'Chicken Breast',serving:'100 g',cal:165,pro:31,cARB:0,fat:3.6},
+      {name:'White Rice',serving:'100 g cooked',cal:130,pro:2.4,carb:28,fat:0.3},
+      {name:'Egg',serving:'1 large',cal:72,pro:6.3,carb:0.4,fat:4.8},
+      {name:'Banana',serving:'1 medium',cal:105,pro:1.3,carb:27,fat:0.4},
+    ].map(x=>({ ...x, carb:x.cARB??x.carb })));
+    ctx.reload();
+  };
+
+  function num(v){return v?Number(v):null} function int(v){return v?parseInt(v,10):null} function numfmt(v){return v==null?'':Number(v).toFixed(1)}
+</script>
+</body></html>
