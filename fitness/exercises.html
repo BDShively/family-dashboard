@@ -1,0 +1,96 @@
+<!-- /family-dashboard/fitness/exercises.html -->
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Fitness · Exercises</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+body{margin:0;font-family:system-ui,Inter;background:#0b1220;color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--muted)}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
+</style></head><body>
+<header>
+  <div><a class="btn" href="/family-dashboard/fitness/index.html">&larr; Fitness</a></div>
+  <div id="auth"></div>
+</header>
+
+<h1>Exercises</h1>
+
+<div class="card">
+  <div class="row">
+    <div><label>Name</label><input id="x_name" placeholder="e.g., Running"></div>
+    <div><label>Type</label><select id="x_type"><option>Cardio</option><option>Strength</option><option>Mobility</option></select></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>MET (cal/kg/hr)</label><input id="x_met" type="number" step="0.1" placeholder="e.g., 9.8"></div>
+    <div><label>Notes</label><input id="x_notes"></div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="btn" id="x_save">Save</button>
+    <button class="btn" id="x_update" disabled>Update</button>
+    <button class="btn" id="x_delete" disabled>Delete</button>
+    <button class="btn" id="x_seed">Load Demo</button>
+    <span id="x_sel" class="muted"></span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div><label>Type Filter</label><select id="x_filter"><option value="">All</option><option>Cardio</option><option>Strength</option><option>Mobility</option></select></div>
+    <div><label>Search</label><input id="x_search" placeholder="Name or notes"></div>
+  </div>
+  <div id="x_count" class="muted" style="margin:8px 0"></div>
+  <table id="x_tbl">
+    <thead><tr>
+      <th data-k="name">Name</th><th data-k="type">Type</th><th data-k="met">MET</th><th data-k="notes">Notes</th>
+    </tr></thead><tbody></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+  import { makeFSList, $, addMany } from "./fitness.js";
+  import { collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;} authUI(u.email); });
+
+  function authUI(email){
+    const c=document.getElementById('auth');
+    c.innerHTML=`<span class="muted">${email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
+  }
+
+  const ctx = makeFSList({
+    store:'fitness_exercises',
+    $thead: $('#x_tbl thead'), $tbody: $('#x_tbl tbody'),
+    $save: $('#x_save'), $update: $('#x_update'), $delete: $('#x_delete'),
+    $selInfo: $('#x_sel'), $search: $('#x_search'), $filter: $('#x_filter'),
+    defaultSort:'name',
+    filterFn:(r,f)=> r.type===f,
+    rowHTML:r=>`<tr data-id="${r.id}"><td>${r.name||''}</td><td>${r.type||''}</td><td>${numfmt(r.met)}</td><td>${r.notes||''}</td></tr>`,
+    getForm:()=>({ name:$('#x_name').value.trim(), type:$('#x_type').value, met:num($('#x_met').value), notes:$('#x_notes').value.trim() }),
+    setForm:r=>{ $('#x_name').value=r.name||''; $('#x_type').value=r.type||'Cardio'; $('#x_met').value=r.met??''; $('#x_notes').value=r.notes||''; },
+    clearForm:()=>{ ['#x_name','#x_met','#x_notes'].forEach(s=>$(s).value=''); $('#x_type').value='Cardio'; }
+  });
+
+  $('#x_seed').onclick = async ()=>{
+    await addMany('fitness_exercises', [
+      {name:'Running (6 mph)',type:'Cardio',met:9.8,notes:''},
+      {name:'Cycling (moderate)',type:'Cardio',met:7.5,notes:''},
+      {name:'Bench Press',type:'Strength',met:3.5,notes:'sets x reps x weight'},
+      {name:'Deadlift',type:'Strength',met:4.0,notes:''},
+      {name:'Yoga',type:'Mobility',met:2.5,notes:''},
+    ]);
+    ctx.reload();
+  };
+
+  function num(v){return v?Number(v):null} function numfmt(v){return v==null?'':Number(v).toFixed(1)}
+</script>
+</body></html>
