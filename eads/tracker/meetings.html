@@ -1,1 +1,73 @@
 
+<!-- /eads/tracker/meetings.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EADS · Meetings</title>
+<link rel="stylesheet" href="./eads.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="crumbs">
+      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
+      <a class="btn" href="./index.html">EADS</a><span>›</span>
+      <span class="btn" style="opacity:.6;pointer-events:none">Meetings</span>
+    </div>
+    <div id="auth"></div>
+  </header>
+
+  <h1>Meetings</h1>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Requester</label><input id="m_requester"></div>
+      <div><label>POC Email</label><input id="m_email" type="email"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Request Date/Time</label><input id="m_reqdt" type="datetime-local"></div>
+      <div><label>Meeting Date/Time</label><input id="m_meetdt" type="datetime-local"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Topic</label><input id="m_topic"></div>
+      <div><label>Location</label><input id="m_loc"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>Status</label>
+        <select id="m_status"><option>New</option><option>Pending</option><option>Scheduled</option><option>Completed</option><option>Cancelled</option></select>
+      </div>
+      <div><label>Notes</label><input id="m_notes"></div>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" id="m_save">Save</button>
+      <button class="btn" id="m_update" disabled>Update</button>
+      <button class="btn" id="m_delete" disabled>Delete</button>
+      <span id="m_sel" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="row">
+      <div>
+        <label>Status Filter</label>
+        <select id="m_filter"><option value="">All</option><option>New</option><option>Pending</option><option>Scheduled</option><option>Completed</option><option>Cancelled</option></select>
+      </div>
+      <div>
+        <label>Search</label>
+        <input id="m_search" placeholder="Search requester, topic, notes">
+      </div>
+    </div>
+    <div class="muted" id="m_count" style="margin:8px 0">Items: 0</div>
+    <table id="m_tbl"><thead><tr>
+      <th>Created</th><th>Requester</th><th>Topic</th><th>Meeting</th><th>Status</th><th>Location</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<script type="module">
+  import {gate} from './eads.js'; gate();
+  /* Hook up your storage later (IndexedDB or Firestore). */
+</script>
+</body>
+</html>
