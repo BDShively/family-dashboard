@@ -4,33 +4,30 @@
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>EADS · Dashboard</title>
-<link rel="stylesheet" href="./eads.css">
+<style>body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid{grid-template-columns:1fr}}.tile{display:flex;gap:10px;align-items:center;padding:14px;border:1px solid #2b325a;border-radius:14px;background:#111832}.muted{color:#9db1d1;font-size:12px}</style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="crumbs">
-      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
-      <span class="btn" style="opacity:.6;pointer-events:none">EADS</span>
-    </div>
-    <div id="auth"></div>
-  </header>
+<header>
+  <div><a class="btn" href="/family-dashboard/main/index.html">Dashboard</a></div>
+  <div id="auth"></div>
+</header>
 
-  <h1>Work Tracker</h1>
-  <p class="muted">Choose a module.</p>
+<h1>Work Tracker</h1>
+<p class="muted">Open a module.</p>
 
-  <div class="grid-tiles">
-    <a class="tile" href="./meetings.html"><div class="t">Meetings</div><span class="muted">Requests, status</span></a>
-    <a class="tile" href="./documents.html"><div class="t">Documents</div><span class="muted">Packages, signatures</span></a>
-    <a class="tile" href="./project.html"><div class="t">Projects</div><span class="muted">Status, priority</span></a>
-    <a class="tile" href="./duties.html"><div class="t">Duties</div><span class="muted">Primary + Additional</span></a>
-    <a class="tile" href="./decorations.html"><div class="t">Decorations</div><span class="muted">10-step flow</span></a>
-    <a class="tile" href="./evaluations.html"><div class="t">Evaluations</div><span class="muted">OPB/EPB flow</span></a>
-    <a class="tile" href="./srr.html"><div class="t">SRR</div><span class="muted">Quarterly records</span></a>
-  </div>
+<div class="grid">
+  <a class="tile" href="./meetings.html">Meetings <span class="muted">· requests</span></a>
+  <a class="tile" href="./documents.html">Documents <span class="muted">· packages</span></a>
+  <a class="tile" href="./project.html">Projects <span class="muted">· status</span></a>
+  <a class="tile" href="./duties.html">Duties <span class="muted">· primary + additional</span></a>
+  <a class="tile" href="./decorations.html">Decorations <span class="muted">· flow</span></a>
+  <a class="tile" href="./evaluations.html">Evaluations <span class="muted">· OPB/EPB</span></a>
+  <a class="tile" href="./srr.html">SRR <span class="muted">· quarterly</span></a>
 </div>
+
 <script type="module">
-  import {gate} from './eads.js'; gate();
+  import { gate } from './eads.js'; gate();
 </script>
 </body>
 </html>
+
