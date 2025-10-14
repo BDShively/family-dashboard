@@ -36,7 +36,7 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
     <div><label>Food</label><select id="lf_food"></select></div>
     <div><label>Servings</label><input id="lf_serv" type="number" step="0.01" value="1"></div>
   </div>
-  <div style="margin-top:10px"><button class="btn" id="lf_add">Add Food</button></div>
+  <div style="margin-top:10px"><button class="btn" id="lf_add" type="button">Add Food</button></div>
 </div>
 
 <div class="card">
@@ -49,7 +49,7 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
     <div><label>Body Weight (kg) for calc</label><input id="le_wt" type="number" step="0.1" value="80"></div>
     <div><label>Intensity note</label><input id="le_note"></div>
   </div>
-  <div style="margin-top:10px"><button class="btn" id="le_add">Add Exercise</button></div>
+  <div style="margin-top:10px"><button class="btn" id="le_add" type="button">Add Exercise</button></div>
 </div>
 
 <div class="card">
@@ -65,27 +65,23 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
   import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
   import { $, loadFoods, loadExercises, loadDaily, addFoodLog, addExerciseLog, deleteLog, today } from "./fitness.js";
   const LOGIN="/family-dashboard/main/index.html";
-  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;} authUI(u.email); init(); });
-
-  function authUI(email){
-    const c=document.getElementById('auth');
-    c.innerHTML=`<span class="muted">${email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
-    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
-  }
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;} const c=document.getElementById('auth'); c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`; signout.onclick=(e)=>{e.preventDefault();signOutUser();}; init(); });
 
   async function init(){
     $('#d_date').value = today();
     $('#d_date').addEventListener('input', refresh);
 
-    // dropdowns
-    const foods = await loadFoods(); $('#lf_food').innerHTML = foods.map(f=>`<option value="${f.id}">${f.name} · ${f.serving} · ${f.cal} kcal</option>`).join('');
-    const exs   = await loadExercises(); $('#le_ex').innerHTML = exs.map(x=>`<option value="${x.id}">${x.name} · MET ${x.met}</option>`).join('');
+    const foods = await loadFoods();
+    document.getElementById('lf_food').innerHTML = foods.map(f=>`<option value="${f.id}">${f.name} · ${f.serving} · ${f.cal} kcal</option>`).join('');
 
-    $('#lf_add').onclick = async ()=>{
+    const exs = await loadExercises();
+    document.getElementById('le_ex').innerHTML = exs.map(x=>`<option value="${x.id}">${x.name} · MET ${x.met}</option>`).join('');
+
+    document.getElementById('lf_add').onclick = async ()=>{
       await addFoodLog($('#d_date').value, $('#lf_food').value, Number($('#lf_serv').value||1));
       await refresh();
     };
-    $('#le_add').onclick = async ()=>{
+    document.getElementById('le_add').onclick = async ()=>{
       await addExerciseLog($('#d_date').value, $('#le_ex').value, Number($('#le_min').value||0), Number($('#le_wt').value||80), $('#le_note').value.trim());
       await refresh();
     };
@@ -94,25 +90,24 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
   }
 
   async function refresh(){
-    const d = $('#d_date').value;
+    const d = document.getElementById('d_date').value;
     const {rows, totals} = await loadDaily(d);
-    // kpis
-    $('#kpis').innerHTML = [
+
+    document.getElementById('kpis').innerHTML = [
       `<div class="kpi"><div class="muted">Calories In</div><div>${totals.in}</div></div>`,
       `<div class="kpi"><div class="muted">Calories Out</div><div>${totals.out}</div></div>`,
       `<div class="kpi"><div class="muted">Net</div><div>${totals.in - totals.out}</div></div>`,
       `<div class="kpi"><div class="muted">Protein (g)</div><div>${totals.pro.toFixed(1)}</div></div>`
     ].join('');
 
-    // table
-    const tb = $('#d_tbl tbody');
+    const tb = document.querySelector('#d_tbl tbody');
     tb.innerHTML = rows.map(r=>`<tr>
       <td>${r.kind}</td>
       <td>${r.name}</td>
       <td>${r.qty}</td>
       <td>${r.cal}</td>
       <td>${r.notes||''}</td>
-      <td><button class="btn" data-id="${r.id}">Delete</button></td>
+      <td><button class="btn" data-id="${r.id}" type="button">Delete</button></td>
     </tr>`).join('');
     tb.querySelectorAll('button[data-id]').forEach(b=>{
       b.onclick = async ()=>{ await deleteLog(b.dataset.id); await refresh(); };
