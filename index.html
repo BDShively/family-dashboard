@@ -73,5 +73,19 @@
     }catch(e){ msg(e.message); }
   };
 </script>
+  <script type="module">
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  onAuthStateChanged(auth,(u)=>{
+    if(!u){ location.href="/family-dashboard/main/index.html"; return; }
+    const c=document.getElementById('auth');
+    if(c){
+      c.innerHTML = `<span class="muted">${u.email}</span>
+        <a class="btn" href="#" id="signout">Sign out</a>`;
+      const s=document.getElementById('signout');
+      s && (s.onclick=(e)=>{e.preventDefault();signOutUser();});
+    }
+  });
+</script>
+
 </body>
 </html>
