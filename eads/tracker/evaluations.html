@@ -1,1 +1,55 @@
+<!-- /eads/tracker/evaluations.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EADS · Evaluations</title>
+<link rel="stylesheet" href="./eads.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="crumbs">
+      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
+      <a class="btn" href="./index.html">EADS</a><span>›</span>
+      <span class="btn" style="opacity:.6;pointer-events:none">Evaluations</span>
+    </div>
+    <div id="auth"></div>
+  </header>
+
+  <h1>Evaluations</h1>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Member</label><input id="ev_member"></div>
+      <div><label>Type</label><select id="ev_type"><option>OPB</option><option>EPB</option></select></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>SCOD / Due</label><input id="ev_due" type="date"></div>
+      <div><label>Notes</label><input id="ev_notes"></div>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" id="ev_save">Save</button>
+      <button class="btn" id="ev_update" disabled>Update</button>
+      <button class="btn" id="ev_delete" disabled>Delete</button>
+      <span id="ev_sel" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="row">
+      <div><label>Search</label><input id="ev_search" placeholder="Search member, notes"></div>
+      <div></div>
+    </div>
+    <div class="muted" id="ev_count" style="margin:8px 0">Items: 0</div>
+    <table id="ev_tbl"><thead><tr>
+      <th>Created</th><th>Member</th><th>Type</th><th>Due</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<script type="module">
+  import {gate} from './eads.js'; gate();
+</script>
+</body>
+</html>
 
