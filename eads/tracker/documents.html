@@ -1,1 +1,64 @@
 
+<!-- /eads/tracker/documents.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EADS · Documents</title>
+<link rel="stylesheet" href="./eads.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="crumbs">
+      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
+      <a class="btn" href="./index.html">EADS</a><span>›</span>
+      <span class="btn" style="opacity:.6;pointer-events:none">Documents</span>
+    </div>
+    <div id="auth"></div>
+  </header>
+
+  <h1>Documents</h1>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Title</label><input id="d_title"></div>
+      <div><label>Owner</label><input id="d_owner"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>Status</label>
+        <select id="d_status"><option>Reviewing</option><option>Sent for Corrections</option><option>Awaiting Signature</option><option>Signed</option></select>
+      </div>
+      <div><label>Requested Date</label><input id="d_reqdate" type="date"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Category</label><input id="d_cat"></div>
+      <div><label>Notes</label><input id="d_notes"></div>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" id="d_save">Save</button>
+      <button class="btn" id="d_update" disabled>Update</button>
+      <button class="btn" id="d_delete" disabled>Delete</button>
+      <span id="d_sel" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="row">
+      <div><label>Status Filter</label>
+        <select id="d_filter"><option value="">All</option><option>Reviewing</option><option>Sent for Corrections</option><option>Awaiting Signature</option><option>Signed</option></select>
+      </div>
+      <div><label>Search</label><input id="d_search" placeholder="Search title, owner, notes"></div>
+    </div>
+    <div class="muted" id="d_count" style="margin:8px 0">Items: 0</div>
+    <table id="d_tbl"><thead><tr>
+      <th>Created</th><th>Title</th><th>Owner</th><th>Status</th><th>Requested</th><th>Category</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<script type="module">
+  import {gate} from './eads.js'; gate();
+</script>
+</body>
+</html>
