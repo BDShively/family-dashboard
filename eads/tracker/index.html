@@ -1,16 +1,23 @@
-<!-- /eads/tracker/index.html -->
+<!-- /family-dashboard/eads/tracker/index.html -->
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>EADS · Dashboard</title>
-  <link rel="stylesheet" href="/family-dashboard/css/base.css">
-
-<style>body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid{grid-template-columns:1fr}}.tile{display:flex;gap:10px;align-items:center;padding:14px;border:1px solid #2b325a;border-radius:14px;background:#111832}.muted{color:#9db1d1;font-size:12px}</style>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+  body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}
+  a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+  .btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+  .tile{display:flex;gap:10px;align-items:center;padding:14px;border:1px solid #2b325a;border-radius:14px;background:#111832}
+  .muted{color:#9db1d1;font-size:12px}
+</style>
 </head>
 <body>
 <header>
-  <div><a class="btn" href="/family-dashboard/main/index.html">Dashboard</a></div>
+  <div><a class="btn" href="/family-dashboard/index.html">Dashboard</a></div>
   <div id="auth"></div>
 </header>
 
@@ -28,8 +35,13 @@
 </div>
 
 <script type="module">
-  import { gate } from './eads.js'; gate();
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  onAuthStateChanged(auth,(u)=>{
+    if(!u){ location.href="/family-dashboard/main/index.html"; return; }
+    const c=document.getElementById('auth');
+    c.innerHTML = `<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    document.getElementById('signout').onclick=(e)=>{e.preventDefault();signOutUser();};
+  });
 </script>
 </body>
 </html>
-
