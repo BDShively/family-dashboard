@@ -1,1 +1,65 @@
+<!-- /eads/tracker/srr.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EADS · SRR</title>
+<link rel="stylesheet" href="./eads.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="crumbs">
+      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
+      <a class="btn" href="./index.html">EADS</a><span>›</span>
+      <span class="btn" style="opacity:.6;pointer-events:none">SRR</span>
+    </div>
+    <div id="auth"></div>
+  </header>
+
+  <h1>SRR</h1>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Member</label><input id="sr_member"></div>
+      <div><label>Year</label><input id="sr_year" type="number" min="2000" max="2100"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Quarter</label><select id="sr_quarter"><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
+      <div><label>Uniform</label><select id="sr_uniform"><option>Service Dress</option><option>OCP</option></select></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Inspection</label><select id="sr_insp"><option>Complete</option><option>Pending</option><option>Exempt</option></select></div>
+      <div><label>RAB</label><select id="sr_rab"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>CAC</label><select id="sr_cac"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
+      <div><label>vRED</label><select id="sr_vred"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
+    </div>
+    <div style="margin-top:10px"><label>Notes</label><textarea id="sr_notes"></textarea></div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" id="sr_save">Save</button>
+      <button class="btn" id="sr_update" disabled>Update</button>
+      <button class="btn" id="sr_delete" disabled>Delete</button>
+      <span id="sr_sel" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="row">
+      <div><label>Filter Quarter</label><select id="sr_filterQ"><option value="">All</option><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
+      <div><label>Filter Year</label><input id="sr_filterY" type="number" min="2000" max="2100" placeholder="YYYY"></div>
+    </div>
+    <div class="muted" id="sr_status_counts" style="margin:8px 0">Complete: 0  Pending: 0  Exempt: 0</div>
+    <table id="sr_tbl"><thead><tr>
+      <th>Created</th><th>Member</th><th>Quarter</th><th>Year</th><th>Uniform</th>
+      <th>Inspection</th><th>RAB</th><th>CAC</th><th>vRED</th><th>Notes</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<script type="module">
+  import {gate} from './eads.js'; gate();
+</script>
+</body>
+</html>
 
