@@ -2,8 +2,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Barn · Stalls</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
@@ -23,11 +22,10 @@
   label{font-size:12px;color:var(--muted)}
   input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:var(--fg)}
   textarea{min-height:70px}
-  /* Map */
   .map-wrap{position:relative;max-width:100%;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0e132a}
   .map-wrap img{display:block;width:100%;height:auto;user-select:none}
   .stall-btn{position:absolute;border:2px solid rgba(255,255,255,.6);border-radius:6px;background:transparent;cursor:pointer;padding:0}
-  .stall-btn .num{opacity:0} /* hide overlay numbers to reveal JPG numbers */
+  .stall-btn .num{opacity:0}
   .legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .badge{border:1px solid var(--line);border-radius:999px;padding:4px 8px;font-size:12px}
   .filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -41,14 +39,12 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="muted">Barn · Stalls</div>
-    <div>
-      <a class="btn" href="/family-dashboard/barn/index.html">Barn</a>
-      <a class="btn" href="/family-dashboard/index.html">Home</a>
-    </div>
+    <div><a class="btn" href="/family-dashboard/barn/index.html">Barn</a> <a class="btn" href="/family-dashboard/index.html">Home</a></div>
+    <div id="auth"></div>
   </header>
 
-  <!-- Controls -->
+  <h1>Stalls</h1>
+
   <div class="card">
     <div class="row">
       <div>
@@ -72,16 +68,14 @@
     </div>
   </div>
 
-  <!-- Map -->
   <div class="card">
     <div class="map-wrap">
-      <img id="barnImg" src="/family-dashboard/assets/barn_layout.jpg" alt="Barn layout">
+      <img id="barnImg" src="/family-dashboard/barn/barn_layout.jpg" alt="Barn layout">
       <div id="overlay"></div>
     </div>
-    <div class="muted" style="margin-top:6px">Click a stall to view its history. Use “Clear selection” to return to all stalls.</div>
+    <div class="muted" style="margin-top:6px">Click a stall to view its history. Use “Clear selection” to return.</div>
   </div>
 
-  <!-- List + Form -->
   <div class="card">
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <h2 id="listTitle" style="margin:0;font-size:18px">Occupancy</h2>
@@ -121,6 +115,15 @@
   </div>
 </div>
 
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  onAuthStateChanged(auth,(u)=>{
+    if(!u){ location.href="/family-dashboard/main/index.html"; return; }
+    const c=document.getElementById('auth');
+    c.innerHTML = `<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    document.getElementById('signout').onclick=(e)=>{e.preventDefault();signOutUser();};
+  });
+</script>
 <script type="module" src="/family-dashboard/barn/barn-stalls.js"></script>
 </body>
 </html>
