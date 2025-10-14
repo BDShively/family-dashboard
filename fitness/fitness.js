@@ -1,7 +1,8 @@
 // /family-dashboard/fitness/fitness.js
 import { db } from "/family-dashboard/js/firebase-init.js";
 import {
-  collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, where
+  collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp,
+  query, where
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 export const $ = (s)=>document.querySelector(s);
@@ -18,8 +19,7 @@ export function makeFSList(cfg){
   let ROWS=[], sel=null;
 
   async function load(){
-    const qy = query(collection(db,store), orderBy(defaultSort));
-    const snap = await getDocs(qy);
+    const snap = await getDocs(collection(db,store));
     ROWS = snap.docs.map(d=>({id:d.id, ...d.data()}));
     render();
   }
@@ -58,11 +58,11 @@ export async function addMany(store, arr){
 
 /* Foods and Exercises lookup */
 export async function loadFoods(){
-  const snap = await getDocs(query(collection(db,'fitness_foods'), orderBy('name')));
+  const snap = await getDocs(collection(db,'fitness_foods'));
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
 }
 export async function loadExercises(){
-  const snap = await getDocs(query(collection(db,'fitness_exercises'), orderBy('name')));
+  const snap = await getDocs(collection(db,'fitness_exercises'));
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
 }
 
@@ -73,26 +73,40 @@ export async function addFoodLog(dateISO, foodId, servings){
   const cal = Math.round((f.cal||0) * servings);
   const pro = Number(((f.pro||0) * servings).toFixed(1));
   await addDoc(collection(db,'fitness_logs'), {
-    date: dateISO, kind:'Food', refId: foodId, name: f.name, qty: servings, cal, pro, notes: f.serving, createdAt: serverTimestamp()
+    date: dateISO, kind:'Food', refId: foodId, name: f.name,
+    qty: servings, cal, pro, notes: f.serving,
+    createdAt: serverTimestamp()
   });
 }
+
 export async function addExerciseLog(dateISO, exId, minutes, kg, note){
   const exs = await loadExercises();
   const x = exs.find(e=>e.id===exId); if(!x) throw new Error('Exercise not found');
   const cal = Math.round((x.met||0) * kg * (minutes/60));
   await addDoc(collection(db,'fitness_logs'), {
-    date: dateISO, kind:'Exercise', refId: exId, name: x.name, qty: minutes, cal, notes: note||'', createdAt: serverTimestamp()
+    date: dateISO, kind:'Exercise', refId: exId, name: x.name,
+    qty: minutes, cal, notes: note||'',
+    createdAt: serverTimestamp()
   });
 }
+
 export async function deleteLog(id){ await deleteDoc(doc(db,'fitness_logs',id)); }
 
 export async function loadDaily(dateISO){
-  const snap = await getDocs(query(collection(db,'fitness_logs'), where('date','==',dateISO), orderBy('createdAt')));
-  const rows = snap.docs.map(d=>({id:d.id, ...d.data()}));
-  const totals = rows.reduce((a,r)=>{
-    if(r.kind==='Food'){ a.in += (r.cal||0); a.pro += (r.pro||0); }
-    if(r.kind==='Exercise'){ a.out += (r.cal||0); }
-    return a;
+  // Removed orderBy to avoid needing a composite index
+  const snap = await getDocs(
+    query(collection(db,'fitness_logs'), where('date','==',dateISO))
+  );
+  const rows = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+  // client-side sort by createdAt
+  rows.sort((a,b)=>{
+    const as=(a.createdAt?.seconds||0), bs=(b.createdAt?.seconds||0);
+    return as-bs;
+  });
+  const totals = rows.reduce((acc,r)=>{
+    if(r.kind==='Food'){ acc.in += (r.cal||0); acc.pro += (r.pro||0); }
+    if(r.kind==='Exercise'){ acc.out += (r.cal||0); }
+    return acc;
   }, {in:0,out:0,pro:0});
   return { rows, totals };
 }
