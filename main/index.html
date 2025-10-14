@@ -1,3 +1,4 @@
+<!-- /family-dashboard/main/index.html -->
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Sign in</title>
@@ -33,17 +34,8 @@ input{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;backgr
   onAuthStateChanged(auth, u => { if(u) location.href=DASH; });
   const msg = t => document.getElementById('msg').textContent = t||"";
 
-  document.getElementById('google').onclick = async ()=>{
-    try{ await signInWithPopup(auth, new GoogleAuthProvider()); location.href=DASH; }
-    catch(e){ msg(e.message); }
-  };
-  document.getElementById('emailSignIn').onclick = async ()=>{
-    try{ await signInWithEmailAndPassword(auth, email.value.trim(), pass.value); location.href=DASH; }
-    catch(e){ msg(e.message); }
-  };
-  document.getElementById('emailRegister').onclick = async ()=>{
-    try{ await createUserWithEmailAndPassword(auth, email.value.trim(), pass.value); location.href=DASH; }
-    catch(e){ msg(e.message); }
-  };
+  google.onclick = async ()=>{ try{ await signInWithPopup(auth, new GoogleAuthProvider()); location.href=DASH; }catch(e){ msg(e.message); } };
+  emailSignIn.onclick = async ()=>{ try{ await signInWithEmailAndPassword(auth, email.value.trim(), pass.value); location.href=DASH; }catch(e){ msg(e.message); } };
+  emailRegister.onclick = async ()=>{ try{ await createUserWithEmailAndPassword(auth, email.value.trim(), pass.value); location.href=DASH; }catch(e){ msg(e.message); } };
 </script>
 </body></html>
