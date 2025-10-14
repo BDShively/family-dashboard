@@ -1,0 +1,87 @@
+<!-- /family-dashboard/finances/bills.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Finances · Bills</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+body{margin:0;font-family:system-ui,Inter;background:#0b1220;color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--muted)}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+.muted{color:var(--muted);font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div><a class="btn" href="./index.html">&larr; Finances</a></div>
+  <div id="auth"></div>
+</header>
+
+<h1>Bills</h1>
+
+<div class="card">
+  <div class="row">
+    <div><label>Name</label><input id="f_name" placeholder="e.g., Electric"></div>
+    <div><label>Category</label>
+      <select id="f_cat"><option>Utilities</option><option>Subscriptions</option><option>Insurance</option><option>Mortgage</option><option>Other</option></select>
+    </div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Amount ($)</label><input id="f_amount" type="number" step="0.01"></div>
+    <div><label>Due Day</label><input id="f_dueDay" type="number" min="1" max="31"></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Autopay</label><select id="f_auto"><option>No</option><option>Yes</option></select></div>
+    <div><label>Notes</label><input id="f_notes"></div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="btn" id="save">Save</button>
+    <button class="btn" id="update" disabled>Update</button>
+    <button class="btn" id="remove" disabled>Delete</button>
+    <span id="sel" class="muted"></span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div><label>Category Filter</label><select id="filter"><option value="">All</option><option>Utilities</option><option>Subscriptions</option><option>Insurance</option><option>Mortgage</option><option>Other</option></select></div>
+    <div><label>Search</label><input id="search" placeholder="Name or notes"></div>
+  </div>
+  <div id="count" class="muted" style="margin:8px 0"></div>
+  <table id="tbl">
+    <thead><tr>
+      <th data-k="name">Name</th><th data-k="category">Category</th><th data-k="amount">Amount</th><th data-k="dueDay">Due</th><th data-k="autopay">Autopay</th><th data-k="notes">Notes</th>
+    </tr></thead><tbody></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  import { makeFSList, $ } from './fin.js';
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{ if(!u){ location.href=LOGIN; return; } const c=document.getElementById('auth'); c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`; signout.onclick=(e)=>{e.preventDefault();signOutUser();}; });
+
+  makeFSList({
+    store:'finances_bills',
+    $thead: $('#tbl thead'), $tbody: $('#tbl tbody'),
+    $save: $('#save'), $update: $('#update'), $delete: $('#remove'),
+    $selInfo: $('#sel'), $search: $('#search'), $filter: $('#filter'),
+    defaultSort:'dueDay',
+    filterFn:(r,f)=> r.category===f,
+    rowHTML:r=>`<tr data-id="${r.id}"><td>${r.name||''}</td><td>${r.category||''}</td><td>${fmt(r.amount)}</td><td>${r.dueDay||''}</td><td>${r.autopay||'No'}</td><td>${r.notes||''}</td></tr>`,
+    getForm:()=>({ name:$('#f_name').value.trim(), category:$('#f_cat').value, amount:num($('#f_amount').value), dueDay: num($('#f_dueDay').value), autopay: $('#f_auto').value, notes:$('#f_notes').value.trim() }),
+    setForm:r=>{ $('#f_name').value=r.name||''; $('#f_cat').value=r.category||'Utilities'; $('#f_amount').value=r.amount??''; $('#f_dueDay').value=r.dueDay??''; $('#f_auto').value=r.autopay||'No'; $('#f_notes').value=r.notes||''; },
+    clearForm:()=>{ ['#f_name','#f_amount','#f_dueDay','#f_notes'].forEach(s=>$(s).value=''); $('#f_cat').value='Utilities'; $('#f_auto').value='No'; }
+  });
+
+  function num(v){ return v? Number(v): null } function fmt(v){ return v==null?'': Number(v).toFixed(2) }
+</script>
+</body>
+</html>
