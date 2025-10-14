@@ -4,62 +4,98 @@
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>EADS · SRR</title>
-<link rel="stylesheet" href="./eads.css">
+<style>body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}.card{background:#111832;border:1px solid #2b325a;border-radius:14px;padding:12px;margin-bottom:12px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}label{font-size:12px;color:#9db1d1}input,select,textarea{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330;color:#e6eefc}textarea{min-height:80px}.muted{color:#9db1d1;font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #2b325a;text-align:left;font-size:14px}</style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="crumbs">
-      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
-      <a class="btn" href="./index.html">EADS</a><span>›</span>
-      <span class="btn" style="opacity:.6;pointer-events:none">SRR</span>
-    </div>
-    <div id="auth"></div>
-  </header>
+<header>
+  <div><a class="btn" href="./index.html">&larr; EADS</a></div>
+  <div id="auth"></div>
+</header>
 
-  <h1>SRR</h1>
+<h1>SRR</h1>
 
-  <div class="card">
-    <div class="row">
-      <div><label>Member</label><input id="sr_member"></div>
-      <div><label>Year</label><input id="sr_year" type="number" min="2000" max="2100"></div>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <div><label>Quarter</label><select id="sr_quarter"><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
-      <div><label>Uniform</label><select id="sr_uniform"><option>Service Dress</option><option>OCP</option></select></div>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <div><label>Inspection</label><select id="sr_insp"><option>Complete</option><option>Pending</option><option>Exempt</option></select></div>
-      <div><label>RAB</label><select id="sr_rab"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <div><label>CAC</label><select id="sr_cac"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
-      <div><label>vRED</label><select id="sr_vred"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
-    </div>
-    <div style="margin-top:10px"><label>Notes</label><textarea id="sr_notes"></textarea></div>
-    <div class="actions" style="margin-top:12px">
-      <button class="btn" id="sr_save">Save</button>
-      <button class="btn" id="sr_update" disabled>Update</button>
-      <button class="btn" id="sr_delete" disabled>Delete</button>
-      <span id="sr_sel" class="muted"></span>
-    </div>
+<div class="card">
+  <div class="row">
+    <div><label>Member</label><input id="sr_member"></div>
+    <div><label>Year</label><input id="sr_year" type="number" min="2000" max="2100"></div>
   </div>
-
-  <div class="card" style="margin-top:12px">
-    <div class="row">
-      <div><label>Filter Quarter</label><select id="sr_filterQ"><option value="">All</option><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
-      <div><label>Filter Year</label><input id="sr_filterY" type="number" min="2000" max="2100" placeholder="YYYY"></div>
-    </div>
-    <div class="muted" id="sr_status_counts" style="margin:8px 0">Complete: 0  Pending: 0  Exempt: 0</div>
-    <table id="sr_tbl"><thead><tr>
-      <th>Created</th><th>Member</th><th>Quarter</th><th>Year</th><th>Uniform</th>
-      <th>Inspection</th><th>RAB</th><th>CAC</th><th>vRED</th><th>Notes</th>
-    </tr></thead><tbody></tbody></table>
+  <div class="row" style="margin-top:10px">
+    <div><label>Quarter</label><select id="sr_quarter"><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
+    <div><label>Uniform</label><select id="sr_uniform"><option>Service Dress</option><option>OCP</option></select></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Inspection</label><select id="sr_insp"><option>Complete</option><option>Pending</option><option>Exempt</option></select></div>
+    <div><label>RAB</label><select id="sr_rab"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>CAC</label><select id="sr_cac"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
+    <div><label>vRED</label><select id="sr_vred"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
+  </div>
+  <div style="margin-top:10px"><label>Notes</label><textarea id="sr_notes"></textarea></div>
+  <div style="margin-top:12px">
+    <button class="btn" id="sr_save">Save</button>
+    <button class="btn" id="sr_update" disabled>Update</button>
+    <button class="btn" id="sr_delete" disabled>Delete</button>
+    <span id="sr_sel" class="muted"></span>
   </div>
 </div>
+
+<div class="card">
+  <div class="row">
+    <div><label>Filter Quarter</label><select id="sr_filterQ"><option value="">All</option><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
+    <div><label>Filter Year</label><input id="sr_filterY" type="number" min="2000" max="2100" placeholder="YYYY"></div>
+  </div>
+  <div id="sr_status_counts" class="muted" style="margin:8px 0"></div>
+  <table id="sr_tbl">
+    <thead><tr>
+      <th data-k="createdAt">Created</th>
+      <th data-k="member">Member</th>
+      <th data-k="quarter">Quarter</th>
+      <th data-k="year">Year</th>
+      <th data-k="uniform">Uniform</th>
+      <th data-k="inspection">Inspection</th>
+      <th data-k="rab">RAB</th>
+      <th data-k="cac">CAC</th>
+      <th data-k="vred">vRED</th>
+      <th data-k="notes">Notes</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
 <script type="module">
-  import {gate} from './eads.js'; gate();
+  import { gate, $ } from './eads.js'; gate();
+  import { makeFSList } from './eads-fs.js';
+
+  const comboFilter = {
+    get value(){ return ($('#sr_filterQ').value||'') + '|' + ($('#sr_filterY').value||''); },
+    set oninput(fn){ ['#sr_filterQ','#sr_filterY'].forEach(sel=>document.querySelector(sel).addEventListener('input',fn)); }
+  };
+
+  makeFSList({
+    store:'eads_srr',
+    $thead: $('#sr_tbl thead'), $tbody: $('#sr_tbl tbody'),
+    $save: $('#sr_save'), $update: $('#sr_update'), $delete: $('#sr_delete'),
+    $selInfo: $('#sr_sel'), $filter: comboFilter,
+    defaultSort:'year',
+    filterFn:(r,v)=>{ const [q,y]=v.split('|'); return (!q||r.quarter===q) && (!y||String(r.year)===String(y)); },
+    rowHTML:r=>`<tr data-id="${r.id}">
+      <td>${r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString() : ''}</td>
+      <td>${r.member||''}</td><td>${r.quarter||''}</td><td>${r.year||''}</td><td>${r.uniform||''}</td>
+      <td>${r.inspection||''}</td><td>${r.rab||''}</td><td>${r.cac||''}</td><td>${r.vred||''}</td><td>${r.notes||''}</td>
+    </tr>`,
+    getForm:()=>({
+      member:$('#sr_member').value.trim(),
+      year:$('#sr_year').value,
+      quarter:$('#sr_quarter').value,
+      uniform:$('#sr_uniform').value,
+      inspection:$('#sr_insp').value,
+      rab:$('#sr_rab').value, cac:$('#sr_cac').value, vred:$('#sr_vred').value,
+      notes:$('#sr_notes').value.trim()
+    }),
+    setForm:r=>{ $('#sr_member').value=r.member||''; $('#sr_year').value=r.year||''; $('#sr_quarter').value=r.quarter||'Q1'; $('#sr_uniform').value=r.uniform||'Service Dress'; $('#sr_insp').value=r.inspection||'Pending'; $('#sr_rab').value=r.rab||'Go'; $('#sr_cac').value=r.cac||'Go'; $('#sr_vred').value=r.vred||'Go'; $('#sr_notes').value=r.notes||''; },
+    clearForm:()=>{ ['#sr_member','#sr_year','#sr_notes'].forEach(s=>$(s).value=''); $('#sr_quarter').value='Q1'; $('#sr_uniform').value='Service Dress'; $('#sr_insp').value='Pending'; $('#sr_rab').value='Go'; $('#sr_cac').value='Go'; $('#sr_vred').value='Go'; $('#sr_update').disabled=$('#sr_delete').disabled=true; $('#sr_sel').textContent=''; }
+  });
 </script>
 </body>
 </html>
-
