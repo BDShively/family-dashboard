@@ -1,1 +1,60 @@
+<!-- /eads/tracker/project.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EADS · Projects</title>
+<link rel="stylesheet" href="./eads.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="crumbs">
+      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
+      <a class="btn" href="./index.html">EADS</a><span>›</span>
+      <span class="btn" style="opacity:.6;pointer-events:none">Projects</span>
+    </div>
+    <div id="auth"></div>
+  </header>
+
+  <h1>Projects</h1>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Name</label><input id="p_name"></div>
+      <div><label>Owner</label><input id="p_owner"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Status</label><select id="p_status"><option>Not Started</option><option>In Progress</option><option>Blocked</option><option>Complete</option></select></div>
+      <div><label>Priority</label><select id="p_pri"><option>Low</option><option>Med</option><option>High</option></select></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Start</label><input id="p_start" type="date"></div>
+      <div><label>Due</label><input id="p_due" type="date"></div>
+    </div>
+    <div style="margin-top:10px"><label>Notes</label><textarea id="p_notes"></textarea></div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" id="p_save">Save</button>
+      <button class="btn" id="p_update" disabled>Update</button>
+      <button class="btn" id="p_delete" disabled>Delete</button>
+      <span id="p_sel" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="row">
+      <div><label>Status Filter</label><select id="p_filter"><option value="">All</option><option>Not Started</option><option>In Progress</option><option>Blocked</option><option>Complete</option></select></div>
+      <div><label>Search</label><input id="p_search" placeholder="Search name, owner, notes"></div>
+    </div>
+    <div class="muted" id="p_count" style="margin:8px 0">Items: 0</div>
+    <table id="p_tbl"><thead><tr>
+      <th>Created</th><th>Name</th><th>Owner</th><th>Status</th><th>Priority</th><th>Due</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<script type="module">
+  import {gate} from './eads.js'; gate();
+</script>
+</body>
+</html>
 
