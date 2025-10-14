@@ -4,59 +4,68 @@
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>EADS · Decorations</title>
-<link rel="stylesheet" href="./eads.css">
+<style>body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}.card{background:#111832;border:1px solid #2b325a;border-radius:14px;padding:12px;margin-bottom:12px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}label{font-size:12px;color:#9db1d1}input{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330;color:#e6eefc}.muted{color:#9db1d1;font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #2b325a;text-align:left;font-size:14px}</style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="crumbs">
-      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
-      <a class="btn" href="./index.html">EADS</a><span>›</span>
-      <span class="btn" style="opacity:.6;pointer-events:none">Decorations</span>
-    </div>
-    <div id="auth"></div>
-  </header>
+<header>
+  <div><a class="btn" href="./index.html">&larr; EADS</a></div>
+  <div id="auth"></div>
+</header>
 
-  <h1>Decorations</h1>
+<h1>Decorations</h1>
 
-  <div class="card">
-    <div class="row">
-      <div><label>Member</label><input id="dc_member"></div>
-      <div><label>Type</label><input id="dc_type" placeholder="MSM/JSAM/etc"></div>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <div><label>Target Present Date</label><input id="dc_due" type="date"></div>
-      <div><label>Notes</label><input id="dc_notes"></div>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <div>
-        <label>Workflow</label>
-        <div class="muted">Track step completions on the Tracker page later.</div>
-      </div>
-      <div></div>
-    </div>
-    <div class="actions" style="margin-top:12px">
-      <button class="btn" id="dc_save">Save</button>
-      <button class="btn" id="dc_update" disabled>Update</button>
-      <button class="btn" id="dc_delete" disabled>Delete</button>
-      <span id="dc_sel" class="muted"></span>
-    </div>
+<div class="card">
+  <div class="row">
+    <div><label>Member</label><input id="dc_member"></div>
+    <div><label>Type</label><input id="dc_type" placeholder="MSM/JSAM/etc"></div>
   </div>
-
-  <div class="card" style="margin-top:12px">
-    <div class="row">
-      <div><label>Search</label><input id="dc_search" placeholder="Search member, type, notes"></div>
-      <div></div>
-    </div>
-    <div class="muted" id="dc_count" style="margin:8px 0">Items: 0</div>
-    <table id="dc_tbl"><thead><tr>
-      <th>Created</th><th>Member</th><th>Type</th><th>Due</th>
-    </tr></thead><tbody></tbody></table>
+  <div class="row" style="margin-top:10px">
+    <div><label>Target Present Date</label><input id="dc_due" type="date"></div>
+    <div><label>Notes</label><input id="dc_notes"></div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="btn" id="dc_save">Save</button>
+    <button class="btn" id="dc_update" disabled>Update</button>
+    <button class="btn" id="dc_delete" disabled>Delete</button>
+    <span id="dc_sel" class="muted"></span>
   </div>
 </div>
+
+<div class="card">
+  <div class="row">
+    <div><label>Search</label><input id="dc_search" placeholder="Search member, type, notes"></div>
+    <div></div>
+  </div>
+  <div id="dc_count" class="muted" style="margin:8px 0"></div>
+  <table id="dc_tbl">
+    <thead><tr>
+      <th data-k="createdAt">Created</th>
+      <th data-k="member">Member</th>
+      <th data-k="type">Type</th>
+      <th data-k="due">Due</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
 <script type="module">
-  import {gate} from './eads.js'; gate();
+  import { gate, $ } from './eads.js'; gate();
+  import { makeFSList } from './eads-fs.js';
+
+  makeFSList({
+    store:'eads_decorations',
+    $thead: $('#dc_tbl thead'), $tbody: $('#dc_tbl tbody'),
+    $save: $('#dc_save'), $update: $('#dc_update'), $delete: $('#dc_delete'),
+    $selInfo: $('#dc_sel'), $search: $('#dc_search'),
+    defaultSort:'due',
+    rowHTML:r=>`<tr data-id="${r.id}">
+      <td>${r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString() : ''}</td>
+      <td>${r.member||''}</td><td>${r.type||''}</td><td>${r.due||''}</td>
+    </tr>`,
+    getForm:()=>({ member:$('#dc_member').value.trim(), type:$('#dc_type').value.trim(), due:$('#dc_due').value, notes:$('#dc_notes').value.trim(), step:1, prevStepCompletedAt:'', history:[] }),
+    setForm:r=>{ $('#dc_member').value=r.member||''; $('#dc_type').value=r.type||''; $('#dc_due').value=r.due||''; $('#dc_notes').value=r.notes||''; },
+    clearForm:()=>{ ['#dc_member','#dc_type','#dc_due','#dc_notes'].forEach(s=>$(s).value=''); $('#dc_update').disabled=$('#dc_delete').disabled=true; $('#dc_sel').textContent=''; }
+  });
 </script>
 </body>
 </html>
-
