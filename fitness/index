@@ -1,0 +1,532 @@
+<!-- NEW: /family-dashboard/fitness/index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Fitness & Nutrition</title>
+<style>
+  :root{--bg:#0b1220;--bg2:#0f1a2b;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--ring:#2b6cb0}
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(160deg,var(--bg),var(--bg2));color:var(--fg)}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1200px;margin:auto;padding:18px}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
+  .muted{color:var(--muted);font-size:12px}
+  h1{margin:6px 0 12px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .tab{border:1px solid #2b325a;background:#0f1330;color:var(--fg);padding:8px 10px;border-radius:10px;cursor:pointer}
+  .tab[aria-selected="true"]{outline:2px solid var(--ring)}
+  .panel{display:none}.panel.active{display:block}
+  .card{background:var(--card);border:1px solid #2b325a;border-radius:14px;padding:12px}
+  label{font-size:12px;color:var(--muted)}
+  input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #2b325a;background:#0f1330;color:var(--fg)}
+  textarea{min-height:70px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:800px){.row{grid-template-columns:1fr}}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button{border:1px solid #2b325a;background:#0f1330;color:var(--fg);padding:10px 12px;border-radius:10px;cursor:pointer}
+  button:hover{filter:brightness(1.08)}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px 10px;border-bottom:1px solid #2b325a;font-size:14px}
+  th{color:var(--muted);text-align:left;cursor:pointer}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+  .spacer{flex:1}
+  .bar{height:10px;border-radius:999px;background:#0e132a;border:1px solid #2b325a;overflow:hidden}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#6b7280,#d1d5db)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a class="btn" href="/family-dashboard/index.html">Dashboard</a>
+      <span class="muted">›</span>
+      <span class="btn" style="opacity:.6;pointer-events:none">Fitness</span>
+    </div>
+    <div id="auth"></div>
+  </header>
+
+  <h1>Fitness & Nutrition</h1>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-tab="daily">Daily Log</button>
+    <button class="tab" role="tab" data-tab="foods">Foods</button>
+    <button class="tab" role="tab" data-tab="exercises">Exercises</button>
+    <button class="tab" role="tab" data-tab="workouts">Workouts</button>
+    <button class="tab" role="tab" data-tab="goals">Goals</button>
+    <button class="tab" role="tab" data-tab="reports">Reports</button>
+    <button class="tab" role="tab" data-tab="body">Body Metrics</button>
+  </div>
+
+  <div class="btns" style="margin:12px 0">
+    <button onclick="backupJSON()">Backup JSON</button>
+    <button onclick="chooseBackupFile()">Choose Backup File</button>
+    <button onclick="backupToChosen()">Backup → chosen file</button>
+    <button onclick="exportAllCSV()">Export CSV</button>
+    <button onclick="triggerRestore()">Restore from JSON</button>
+    <input id="restore_file" type="file" accept="application/json" style="display:none">
+  </div>
+
+  <!-- Daily Log -->
+  <section id="daily" class="panel active">
+    <div class="card">
+      <div class="row">
+        <div><label>Date</label><input id="dl_date" type="date"></div>
+        <div><label>Meal</label>
+          <select id="dl_meal"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div>
+          <label>Food</label>
+          <input id="dl_food" list="food_names" placeholder="Search saved foods">
+          <datalist id="food_names"></datalist>
+        </div>
+        <div><label>Servings</label><input id="dl_servings" type="number" min="0" step="0.01" value="1"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Notes</label><input id="dl_notes" placeholder="Optional"></div>
+        <div style="display:flex;align-items:flex-end"><button id="dl_add">Add to log</button></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="controls">
+        <div><label>Filter Date</label><input id="dl_filter_date" type="date"></div>
+        <div><label>Search</label><input id="dl_search" placeholder="Food, meal, notes"></div>
+        <div class="spacer"></div>
+        <div class="muted" id="dl_count">Items: 0</div>
+      </div>
+      <table id="dl_tbl">
+        <thead><tr>
+          <th data-k="date">Date</th><th data-k="meal">Meal</th><th data-k="food">Food</th>
+          <th data-k="cal">Cal</th><th data-k="pro">P</th><th data-k="carb">C</th><th data-k="fat">F</th>
+          <th data-k="servings">Srv</th><th data-k="notes">Notes</th>
+        </tr></thead><tbody></tbody>
+      </table>
+      <div class="btns" style="margin-top:10px">
+        <button id="dl_delete" disabled>Delete</button>
+        <span id="dl_sel" class="muted"></span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3 style="margin:0 0 10px">Today’s Totals</h3>
+      <div id="totals_text" class="muted">Calories 0 • Protein 0g • Carbs 0g • Fat 0g</div>
+      <div style="margin-top:8px"><label>Calories</label><div class="bar"><i id="bar_cal" style="width:0%"></i></div></div>
+      <div style="margin-top:8px"><label>Protein</label><div class="bar"><i id="bar_pro" style="width:0%"></i></div></div>
+      <div style="margin-top:8px"><label>Carbs</label><div class="bar"><i id="bar_carb" style="width:0%"></i></div></div>
+      <div style="margin-top:8px"><label>Fat</label><div class="bar"><i id="bar_fat" style="width:0%"></i></div></div>
+    </div>
+  </section>
+
+  <!-- Foods -->
+  <section id="foods" class="panel">
+    <div class="card">
+      <div class="row">
+        <div><label>Name</label><input id="f_name"></div>
+        <div><label>Brand</label><input id="f_brand"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Serving Size</label><input id="f_serving" placeholder="e.g., 1 cup | 100 g"></div>
+        <div><label>Calories per serving</label><input id="f_cal" type="number" min="0" step="0.1"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Protein g</label><input id="f_pro" type="number" min="0" step="0.1"></div>
+        <div><label>Carbs g</label><input id="f_carb" type="number" min="0" step="0.1"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Fat g</label><input id="f_fat" type="number" min="0" step="0.1"></div>
+        <div style="display:flex;align-items:flex-end">
+          <button id="f_save">Save</button>
+          <button id="f_update" disabled style="margin-left:8px">Update</button>
+          <button id="f_delete" disabled style="margin-left:8px">Delete</button>
+          <span id="f_sel" class="muted" style="margin-left:8px"></span>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="controls">
+        <div><label>Search</label><input id="f_search" placeholder="Name, brand"></div>
+        <div class="spacer"></div>
+        <div class="muted" id="f_count">Items: 0</div>
+      </div>
+      <table id="f_tbl">
+        <thead><tr>
+          <th data-k="name">Name</th><th data-k="brand">Brand</th><th data-k="serving">Serving</th>
+          <th data-k="cal">Cal</th><th data-k="pro">P</th><th data-k="carb">C</th><th data-k="fat">F</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Exercises -->
+  <section id="exercises" class="panel">
+    <div class="card">
+      <div class="row">
+        <div><label>Name</label><input id="e_name"></div>
+        <div><label>Type</label>
+          <select id="e_type"><option>Strength</option><option>Cardio</option><option>Mobility</option></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Default Units</label>
+          <select id="e_units"><option>reps@weight</option><option>time</option><option>distance</option></select>
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button id="e_save">Save</button>
+          <button id="e_update" disabled style="margin-left:8px">Update</button>
+          <button id="e_delete" disabled style="margin-left:8px">Delete</button>
+          <span id="e_sel" class="muted" style="margin-left:8px"></span>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="controls">
+        <div><label>Search</label><input id="e_search" placeholder="Name, type"></div>
+        <div class="spacer"></div>
+        <div class="muted" id="e_count">Items: 0</div>
+      </div>
+      <table id="e_tbl">
+        <thead><tr><th data-k="name">Name</th><th data-k="type">Type</th><th data-k="units">Units</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Workouts -->
+  <section id="workouts" class="panel">
+    <div class="card">
+      <div class="row">
+        <div><label>Date</label><input id="w_date" type="date"></div>
+        <div><label>Exercise</label><input id="w_ex" list="ex_names" placeholder="Search saved exercises"><datalist id="ex_names"></datalist></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Details</label><input id="w_details" placeholder="e.g., 3×10 @ 135 lb, 30 min Z2, 5 km"></div>
+        <div style="display:flex;align-items:flex-end"><button id="w_add">Add Workout</button></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="controls">
+        <div><label>Filter Date</label><input id="w_filter_date" type="date"></div>
+        <div><label>Search</label><input id="w_search" placeholder="Exercise, details"></div>
+        <div class="spacer"></div>
+        <div class="muted" id="w_count">Items: 0</div>
+      </div>
+      <table id="w_tbl">
+        <thead><tr><th data-k="date">Date</th><th data-k="exercise">Exercise</th><th data-k="details">Details</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="btns" style="margin-top:10px">
+        <button id="w_delete" disabled>Delete</button>
+        <span id="w_sel" class="muted"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Goals -->
+  <section id="goals" class="panel">
+    <div class="card">
+      <div class="row">
+        <div><label>Daily Calories Target</label><input id="g_cal" type="number" min="0" step="1" value="2000"></div>
+        <div><label>Protein g</label><input id="g_pro" type="number" min="0" step="1" value="150"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Carbs g</label><input id="g_carb" type="number" min="0" step="1" value="200"></div>
+        <div><label>Fat g</label><input id="g_fat" type="number" min="0" step="1" value="70"></div>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button id="g_save">Save Goals</button>
+        <span id="g_status" class="muted"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reports -->
+  <section id="reports" class="panel">
+    <div class="card">
+      <div class="row">
+        <div><label>From</label><input id="r_from" type="date"></div>
+        <div><label>To</label><input id="r_to" type="date"></div>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button id="r_run">Run Report</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div id="r_out" class="muted">Totals and averages will appear here.</div>
+    </div>
+  </section>
+
+  <!-- Body Metrics -->
+  <section id="body" class="panel">
+    <div class="card">
+      <div class="row">
+        <div><label>Date</label><input id="bm_date" type="date"></div>
+        <div><label>Notes</label><input id="bm_notes" placeholder="Optional"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Weight (kg)</label><input id="bm_weight" type="number" step="0.1" min="0"></div>
+        <div><label>BMI</label><input id="bm_bmi" type="number" step="0.1" min="0"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Muscle Mass (kg)</label><input id="bm_muscle_mass" type="number" step="0.1" min="0"></div>
+        <div><label>Muscle %</label><input id="bm_muscle_pct" type="number" step="0.1" min="0" max="100"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Bone Mass (kg)</label><input id="bm_bone_mass" type="number" step="0.1" min="0"></div>
+        <div><label>BMR (kcal)</label><input id="bm_bmr" type="number" step="1" min="0"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Protein %</label><input id="bm_protein_pct" type="number" step="0.1" min="0" max="100"></div>
+        <div><label>Fat Weight (kg)</label><input id="bm_fat_weight" type="number" step="0.1" min="0"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Weight w/o Fat (kg)</label><input id="bm_lean_weight" type="number" step="0.1" min="0"></div>
+        <div><label>Fat %</label><input id="bm_fat_pct" type="number" step="0.1" min="0" max="100"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Visceral Fat Index</label><input id="bm_visceral" type="number" step="0.1" min="0"></div>
+        <div><label>Subcutaneous Fat (kg)</label><input id="bm_subcut_fat" type="number" step="0.1" min="0"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Water Weight (kg)</label><input id="bm_water_weight" type="number" step="0.1" min="0"></div>
+        <div><label>Water %</label><input id="bm_water_pct" type="number" step="0.1" min="0" max="100"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Obesity Level</label><input id="bm_obesity_level" type="number" step="0.1" min="0"></div>
+        <div><label>Physical Age</label><input id="bm_physical_age" type="number" step="1" min="0"></div>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button id="bm_save">Save</button>
+        <button id="bm_update" disabled>Update</button>
+        <button id="bm_delete" disabled>Delete</button>
+        <span id="bm_sel" class="muted"></span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="controls">
+        <div><label>Filter Date</label><input id="bm_filter_date" type="date"></div>
+        <div><label>Search</label><input id="bm_search" placeholder="Notes or numbers"></div>
+        <div class="spacer"></div>
+        <div class="muted" id="bm_count">Items: 0</div>
+      </div>
+      <table id="bm_tbl">
+        <thead><tr>
+          <th data-k="date">Date</th><th data-k="weight">Wt</th><th data-k="bmi">BMI</th>
+          <th data-k="fat_pct">Fat%</th><th data-k="muscle_pct">Mus%</th><th data-k="water_pct">Water%</th>
+          <th data-k="visceral">Visc</th><th data-k="physical_age">PhysAge</th><th data-k="notes">Notes</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+  // Auth header
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  onAuthStateChanged(auth,(u)=>{
+    const c=document.getElementById('auth');
+    if(!u){ location.href="/family-dashboard/main/index.html"; return; }
+    c.innerHTML=`<div class="muted" style="display:flex;gap:8px;align-items:center">
+      <span>${u.email}</span><a class="btn" href="#" id="signout">Sign out</a></div>`;
+    document.getElementById('signout').onclick=(e)=>{e.preventDefault();signOutUser();};
+  });
+</script>
+
+<script>
+/* ==== Core logic (IndexedDB; no Firebase required) ==== */
+const $=s=>document.querySelector(s);const $$=s=>document.querySelectorAll(s);
+const today=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+$$('.tab').forEach(t=>t.onclick=()=>{ $$('.tab').forEach(x=>x.setAttribute('aria-selected','false')); t.setAttribute('aria-selected','true'); $$('.panel').forEach(p=>p.classList.remove('active')); $('#'+t.dataset.tab).classList.add('active'); });
+
+const DB='fitnut_db', VER=2; let db;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,VER); r.onupgradeneeded=e=>{const d=e.target.result;
+  if(!d.objectStoreNames.contains('foods')) d.createObjectStore('foods',{keyPath:'id',autoIncrement:true});
+  if(!d.objectStoreNames.contains('exercises')) d.createObjectStore('exercises',{keyPath:'id',autoIncrement:true});
+  if(!d.objectStoreNames.contains('food_logs')) d.createObjectStore('food_logs',{keyPath:'id',autoIncrement:true});
+  if(!d.objectStoreNames.contains('workouts')) d.createObjectStore('workouts',{keyPath:'id',autoIncrement:true});
+  if(!d.objectStoreNames.contains('goals')) d.createObjectStore('goals',{keyPath:'id',autoIncrement:true});
+  if(!d.objectStoreNames.contains('body_metrics')) d.createObjectStore('body_metrics',{keyPath:'id',autoIncrement:true});
+}; r.onsuccess=()=>{db=r.result;res();}; r.onerror=()=>rej(r.error);});}
+function store(name,mode){return db.transaction(name,mode).objectStore(name);}
+const DBops={ all:(n)=>new Promise((res,rej)=>{const q=store(n,'readonly').getAll(); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>rej(q.error);}),
+  add:(n,rec)=>new Promise((res,rej)=>{const q=store(n,'readwrite').add(rec); q.onsuccess=e=>res(e.target.result); q.onerror=()=>rej(q.error);}),
+  put:(n,rec)=>new Promise((res,rej)=>{const q=store(n,'readwrite').put(rec); q.onsuccess=()=>res(); q.onerror=()=>rej(q.error);}),
+  del:(n,id)=>new Promise((res,rej)=>{const q=store(n,'readwrite').delete(id); q.onsuccess=()=>res(); q.onerror=()=>rej(q.error);})
+};
+function toCSV(cols,rows){ const esc=v=>('"'+String(v??'').replace(/"/g,'""')+'"'); return [cols.join(',')].concat(rows.map(r=>cols.map(c=>esc(r[c])).join(','))).join('\r\n'); }
+function download(name,content,type='text/plain'){ const a=document.createElement('a'); a.download=name; a.href=URL.createObjectURL(new Blob([content],{type})); a.click(); URL.revokeObjectURL(a.href); }
+
+/* Foods */
+const Food={rows:[],sel:null};
+function renderFoods(){
+  const q=$('#f_search').value.toLowerCase();
+  const v=Food.rows.filter(r=>(`${r.name} ${r.brand}`.toLowerCase().includes(q)));
+  $('#f_tbl tbody').innerHTML=v.map(r=>`<tr data-id="${r.id}"><td>${r.name}</td><td>${r.brand||''}</td><td>${r.serving||''}</td><td>${r.cal||0}</td><td>${r.pro||0}</td><td>${r.carb||0}</td><td>${r.fat||0}</td></tr>`).join('');
+  $('#f_count').textContent=`Items: ${Food.rows.length}${v.length!==Food.rows.length?` (showing ${v.length})`:''}`;
+  $('#food_names').innerHTML=Food.rows.map(r=>`<option value="${r.name}">`).join('');
+}
+$('#f_tbl').addEventListener('click',e=>{const tr=e.target.closest('tr'); if(!tr) return; const id=+tr.dataset.id; Food.sel=Food.rows.find(r=>r.id===id);
+  $('#f_name').value=Food.sel.name||''; $('#f_brand').value=Food.sel.brand||''; $('#f_serving').value=Food.sel.serving||''; $('#f_cal').value=Food.sel.cal||0; $('#f_pro').value=Food.sel.pro||0; $('#f_carb').value=Food.sel.carb||0; $('#f_fat').value=Food.sel.fat||0;
+  $('#f_update').disabled=false; $('#f_delete').disabled=false; $('#f_sel').textContent=`Editing #${id}`;});
+$('#f_save').onclick=async()=>{ Food.sel=null; const rec={ name:$('#f_name').value.trim(), brand:$('#f_brand').value.trim(), serving:$('#f_serving').value.trim(), cal:+$('#f_cal').value||0, pro:+$('#f_pro').value||0, carb:+$('#f_carb').value||0, fat:+$('#f_fat').value||0, createdAt:new Date().toISOString() };
+  rec.id=await DBops.add('foods',rec); Food.rows.push(rec); ['#f_name','#f_brand','#f_serving','#f_cal','#f_pro','#f_carb','#f_fat'].forEach(s=>$(s).value=''); $('#f_update').disabled=$('#f_delete').disabled=true; $('#f_sel').textContent=''; renderFoods();};
+$('#f_update').onclick=async()=>{ if(!Food.sel) return; const upd={...Food.sel, name:$('#f_name').value.trim(), brand:$('#f_brand').value.trim(), serving:$('#f_serving').value.trim(), cal:+$('#f_cal').value||0, pro:+$('#f_pro').value||0, carb:+$('#f_carb').value||0, fat:+$('#f_fat').value||0};
+  await DBops.put('foods',upd); Food.rows[Food.rows.findIndex(x=>x.id===upd.id)]=upd; Food.sel=null; ['#f_name','#f_brand','#f_serving','#f_cal','#f_pro','#f_carb','#f_fat'].forEach(s=>$(s).value=''); $('#f_update').disabled=$('#f_delete').disabled=true; $('#f_sel').textContent=''; renderFoods();};
+$('#f_delete').onclick=async()=>{ if(!Food.sel) return; await DBops.del('foods',Food.sel.id); Food.rows=Food.rows.filter(r=>r.id!==Food.sel.id); Food.sel=null; ['#f_name','#f_brand','#f_serving','#f_cal','#f_pro','#f_carb','#f_fat'].forEach(s=>$(s).value=''); $('#f_update').disabled=$('#f_delete').disabled=true; $('#f_sel').textContent=''; renderFoods();};
+$('#f_search').oninput=renderFoods;
+
+/* Exercises */
+const Ex={rows:[],sel:null};
+function renderEx(){
+  const q=$('#e_search').value.toLowerCase();
+  const v=Ex.rows.filter(r=>(`${r.name} ${r.type} ${r.units}`.toLowerCase().includes(q)));
+  $('#e_tbl tbody').innerHTML=v.map(r=>`<tr data-id="${r.id}"><td>${r.name}</td><td>${r.type}</td><td>${r.units}</td></tr>`).join('');
+  $('#e_count').textContent=`Items: ${Ex.rows.length}${v.length!==Ex.rows.length?` (showing ${v.length})`:''}`;
+  $('#ex_names').innerHTML=Ex.rows.map(r=>`<option value="${r.name}">`).join('');
+}
+$('#e_tbl').addEventListener('click',e=>{const tr=e.target.closest('tr'); if(!tr) return; const id=+tr.dataset.id; Ex.sel=Ex.rows.find(r=>r.id===id);
+  $('#e_name').value=Ex.sel.name; $('#e_type').value=Ex.sel.type; $('#e_units').value=Ex.sel.units; $('#e_update').disabled=false; $('#e_delete').disabled=false; $('#e_sel').textContent=`Editing #${id}`;});
+$('#e_save').onclick=async()=>{ Ex.sel=null; const rec={ name:$('#e_name').value.trim(), type:$('#e_type').value, units:$('#e_units').value, createdAt:new Date().toISOString() };
+  rec.id=await DBops.add('exercises',rec); Ex.rows.push(rec); $('#e_name').value=''; $('#e_update').disabled=$('#e_delete').disabled=true; $('#e_sel').textContent=''; renderEx();};
+$('#e_update').onclick=async()=>{ if(!Ex.sel) return; const upd={...Ex.sel, name:$('#e_name').value.trim(), type:$('#e_type').value, units:$('#e_units').value};
+  await DBops.put('exercises',upd); Ex.rows[Ex.rows.findIndex(x=>x.id===upd.id)]=upd; Ex.sel=null; $('#e_name').value=''; $('#e_update').disabled=$('#e_delete').disabled=true; $('#e_sel').textContent=''; renderEx();};
+$('#e_delete').onclick=async()=>{ if(!Ex.sel) return; await DBops.del('exercises',Ex.sel.id); Ex.rows=Ex.rows.filter(r=>r.id!==Ex.sel.id); Ex.sel=null; $('#e_name').value=''; $('#e_update').disabled=$('#e_delete').disabled=true; $('#e_sel').textContent=''; renderEx();};
+$('#e_search').oninput=renderEx;
+
+/* Food Log */
+const Log={rows:[],sel:null, sortKey:'date',asc:true};
+function renderLog(){
+  let v=Log.rows.slice();
+  const fd=$('#dl_filter_date').value;
+  const q=($('#dl_search').value||'').toLowerCase();
+  if(fd) v=v.filter(r=>r.date===fd);
+  if(q) v=v.filter(r=>(`${r.food} ${r.meal} ${r.notes}`.toLowerCase().includes(q)));
+  v.sort((a,b)=>{const A=a[Log.sortKey],B=b[Log.sortKey]; return (A>B?1:A<B?-1:0)*(Log.asc?1:-1);});
+  $('#dl_tbl tbody').innerHTML=v.map(r=>`<tr data-id="${r.id}">
+    <td>${r.date}</td><td>${r.meal}</td><td>${r.food}</td>
+    <td>${r.cal.toFixed(0)}</td><td>${r.pro.toFixed(1)}</td><td>${r.carb.toFixed(1)}</td><td>${r.fat.toFixed(1)}</td>
+    <td>${r.servings}</td><td>${r.notes||''}</td></tr>`).join('');
+  $('#dl_count').textContent=`Items: ${Log.rows.length}${v.length!==Log.rows.length?` (showing ${v.length})`:''}`;
+  const day=fd||today();
+  const t=Log.rows.filter(r=>r.date===day).reduce((a,r)=>({cal:a.cal+r.cal,pro:a.pro+r.pro,carb:a.carb+r.carb,fat:a.fat+r.fat}),{cal:0,pro:0,carb:0,fat:0});
+  const g=Goals.current;
+  $('#totals_text').innerHTML=`${day} • Calories ${t.cal.toFixed(0)} / ${g.cal} • Protein ${t.pro.toFixed(0)}g / ${g.pro} • Carbs ${t.carb.toFixed(0)}g / ${g.carb} • Fat ${t.fat.toFixed(0)}g / ${g.fat}`;
+  const pct=(x,den)=>Math.max(0,Math.min(100, den? (x/den*100):0));
+  $('#bar_cal').style.width=pct(t.cal,g.cal)+'%';
+  $('#bar_pro').style.width=pct(t.pro,g.pro)+'%';
+  $('#bar_carb').style.width=pct(t.carb,g.carb)+'%';
+  $('#bar_fat').style.width=pct(t.fat,g.fat)+'%';
+}
+$('#dl_tbl thead').addEventListener('click',e=>{const k=e.target.getAttribute('data-k'); if(!k) return; Log.asc = Log.sortKey===k ? !Log.asc : true; Log.sortKey=k; renderLog();});
+$('#dl_tbl tbody').addEventListener('click',e=>{const tr=e.target.closest('tr'); if(!tr) return; const id=+tr.dataset.id; Log.sel=Log.rows.find(r=>r.id===id); $('#dl_delete').disabled=false; $('#dl_sel').textContent=`Selected #${id}`;});
+$('#dl_delete').onclick=async()=>{ if(!Log.sel) return; await DBops.del('food_logs',Log.sel.id); Log.rows=Log.rows.filter(r=>r.id!==Log.sel.id); Log.sel=null; $('#dl_delete').disabled=true; $('#dl_sel').textContent=''; renderLog();};
+$('#dl_add').onclick=async()=>{ const date=$('#dl_date').value||today(); const meal=$('#dl_meal').value; const name=$('#dl_food').value.trim(); const sv=+($('#dl_servings').value||1);
+  if(!name){ alert('Choose a food'); return; }
+  const base=Food.rows.find(f=>f.name.toLowerCase()===name.toLowerCase());
+  if(!base){ alert('Food not found. Add it in Foods tab first.'); return; }
+  const rec={ date, meal, food:base.name, servings:sv,
+    cal:(base.cal||0)*sv, pro:(base.pro||0)*sv, carb:(base.carb||0)*sv, fat:(base.fat||0)*sv,
+    notes:$('#dl_notes').value.trim(), createdAt:new Date().toISOString() };
+  rec.id=await DBops.add('food_logs',rec); Log.rows.push(rec);
+  $('#dl_food').value=''; $('#dl_servings').value='1'; $('#dl_notes').value='';
+  if(!$('#dl_filter_date').value){ $('#dl_filter_date').value=date; }
+  renderLog();
+};
+$('#dl_filter_date').oninput=renderLog; $('#dl_search').oninput=renderLog;
+
+/* Workouts */
+const WO={rows:[],sel:null,sortKey:'date',asc:true};
+function renderWO(){
+  let v=WO.rows.slice();
+  const fd=$('#w_filter_date').value; const q=$('#w_search').value.toLowerCase();
+  if(fd) v=v.filter(r=>r.date===fd); if(q) v=v.filter(r=>(`${r.exercise} ${r.details}`.toLowerCase().includes(q)));
+  v.sort((a,b)=>{const A=a[WO.sortKey],B=b[WO.sortKey]; return (A>B?1:A<B?-1:0)*(WO.asc?1:-1);});
+  $('#w_tbl tbody').innerHTML=v.map(r=>`<tr data-id="${r.id}"><td>${r.date}</td><td>${r.exercise}</td><td>${r.details||''}</td></tr>`).join('');
+  $('#w_count').textContent=`Items: ${WO.rows.length}${v.length!==WO.rows.length?` (showing ${v.length})`:''}`;
+}
+$('#w_tbl thead').addEventListener('click',e=>{const k=e.target.getAttribute('data-k'); if(!k) return; WO.asc = WO.sortKey===k ? !WO.asc : true; WO.sortKey=k; renderWO();});
+$('#w_tbl tbody').addEventListener('click',e=>{const tr=e.target.closest('tr'); if(!tr) return; const id=+tr.dataset.id; WO.sel=WO.rows.find(r=>r.id===id); $('#w_delete').disabled=false; $('#w_sel').textContent=`Selected #${id}`;});
+$('#w_delete').onclick=async()=>{ if(!WO.sel) return; await DBops.del('workouts',WO.sel.id); WO.rows=WO.rows.filter(r=>r.id!==WO.sel.id); WO.sel=null; $('#w_delete').disabled=true; $('#w_sel').textContent=''; renderWO();};
+$('#w_add').onclick=async()=>{ const rec={ date:$('#w_date').value||today(), exercise:$('#w_ex').value.trim(), details:$('#w_details').value.trim(), createdAt:new Date().toISOString() };
+  if(!rec.exercise){ alert('Pick an exercise'); return; }
+  rec.id=await DBops.add('workouts',rec); WO.rows.push(rec); $('#w_ex').value=''; $('#w_details').value=''; if(!$('#w_filter_date').value) $('#w_filter_date').value=rec.date; renderWO();
+};
+$('#w_filter_date').oninput=renderWO; $('#w_search').oninput=renderWO;
+
+/* Goals */
+const Goals={current:{cal:2000,pro:150,carb:200,fat:70}};
+async function loadGoals(){ const g=await DBops.all('goals'); if(g.length){ Goals.current={...Goals.current,...g[g.length-1]}; } syncGoalsUI(); }
+function syncGoalsUI(){ $('#g_cal').value=Goals.current.cal; $('#g_pro').value=Goals.current.pro; $('#g_carb').value=Goals.current.carb; $('#g_fat').value=Goals.current.fat; }
+$('#g_save').onclick=async()=>{ const rec={ cal:+$('#g_cal').value||0, pro:+$('#g_pro').value||0, carb:+$('#g_carb').value||0, fat:+$('#g_fat').value||0, createdAt:new Date().toISOString() };
+  rec.id=await DBops.add('goals',rec); Goals.current=rec; $('#g_status').textContent='Saved.'; setTimeout(()=>$('#g_status').textContent='',1200); renderLog(); };
+
+/* Reports */
+$('#r_run').onclick=async()=>{ const from=$('#r_from').value||'0000-01-01', to=$('#r_to').value||'9999-12-31';
+  const rows=Log.rows.filter(r=>r.date>=from && r.date<=to);
+  const days=[...new Set(rows.map(r=>r.date))].sort();
+  const totals=rows.reduce((a,r)=>({cal:a.cal+r.cal,pro:a.pro+r.pro,carb:a.carb+r.carb,fat:a.fat+r.fat}),{cal:0,pro:0,carb:0,fat:0});
+  const avg={cal:totals.cal/(days.length||1),pro:totals.pro/(days.length||1),carb:totals.carb/(days.length||1),fat:totals.fat/(days.length||1)};
+  $('#r_out').innerHTML=`Range ${from} → ${to}<br>Days: ${days.length}<br>Total: ${totals.cal.toFixed(0)} cal • P ${totals.pro.toFixed(0)}g • C ${totals.carb.toFixed(0)}g • F ${totals.fat.toFixed(0)}g<br>Avg/day: ${avg.cal.toFixed(0)} cal • P ${avg.pro.toFixed(0)}g • C ${avg.carb.toFixed(0)}g • F ${avg.fat.toFixed(0)}g`;
+};
+
+/* Body Metrics */
+const BM={rows:[],sel:null,sortKey:'date',asc:true};
+function bmGetForm(){return {
+  date: $('#bm_date').value||today(), notes: $('#bm_notes').value.trim(),
+  weight:+($('#bm_weight').value||0), bmi:+($('#bm_bmi').value||0),
+  muscle_mass:+($('#bm_muscle_mass').value||0), muscle_pct:+($('#bm_muscle_pct').value||0),
+  bone_mass:+($('#bm_bone_mass').value||0), bmr:+($('#bm_bmr').value||0),
+  protein_pct:+($('#bm_protein_pct').value||0), fat_weight:+($('#bm_fat_weight').value||0),
+  lean_weight:+($('#bm_lean_weight').value||0), fat_pct:+($('#bm_fat_pct').value||0),
+  visceral:+($('#bm_visceral').value||0), subcut_fat:+($('#bm_subcut_fat').value||0),
+  water_weight:+($('#bm_water_weight').value||0), water_pct:+($('#bm_water_pct').value||0),
+  obesity_level:+($('#bm_obesity_level').value||0), physical_age:+($('#bm_physical_age').value||0)
+};}
+function bmSetForm(r){ $('#bm_date').value=r.date||today(); $('#bm_notes').value=r.notes||''; $('#bm_weight').value=r.weight||''; $('#bm_bmi').value=r.bmi||''; $('#bm_muscle_mass').value=r.muscle_mass||''; $('#bm_muscle_pct').value=r.muscle_pct||''; $('#bm_bone_mass').value=r.bone_mass||''; $('#bm_bmr').value=r.bmr||''; $('#bm_protein_pct').value=r.protein_pct||''; $('#bm_fat_weight').value=r.fat_weight||''; $('#bm_lean_weight').value=r.lean_weight||''; $('#bm_fat_pct').value=r.fat_pct||''; $('#bm_visceral').value=r.visceral||''; $('#bm_subcut_fat').value=r.subcut_fat||''; $('#bm_water_weight').value=r.water_weight||''; $('#bm_water_pct').value=r.water_pct||''; $('#bm_obesity_level').value=r.obesity_level||''; $('#bm_physical_age').value=r.physical_age||''; }
+function bmClear(){ ['#bm_notes','#bm_weight','#bm_bmi','#bm_muscle_mass','#bm_muscle_pct','#bm_bone_mass','#bm_bmr','#bm_protein_pct','#bm_fat_weight','#bm_lean_weight','#bm_fat_pct','#bm_visceral','#bm_subcut_fat','#bm_water_weight','#bm_water_pct','#bm_obesity_level','#bm_physical_age'].forEach(s=>$(s).value=''); $('#bm_date').value=today(); $('#bm_update').disabled=$('#bm_delete').disabled=true; $('#bm_sel').textContent=''; }
+function renderBM(){ let v=BM.rows.slice(); const fd=$('#bm_filter_date').value; const q=($('#bm_search').value||'').toLowerCase(); if(fd) v=v.filter(r=>r.date===fd); if(q) v=v.filter(r=>Object.values(r).join(' ').toLowerCase().includes(q));
+  v.sort((a,b)=>{const A=a[BM.sortKey],B=b[BM.sortKey]; return (A>B?1:A<B?-1:0)*(BM.asc?1:-1);});
+  $('#bm_tbl tbody').innerHTML=v.map(r=>`<tr data-id="${r.id}"><td>${r.date}</td><td>${r.weight||''}</td><td>${r.bmi||''}</td><td>${r.fat_pct||''}</td><td>${r.muscle_pct||''}</td><td>${r.water_pct||''}</td><td>${r.visceral||''}</td><td>${r.physical_age||''}</td><td>${r.notes||''}</td></tr>`).join('');
+  $('#bm_count').textContent=`Items: ${BM.rows.length}${v.length!==BM.rows.length?` (showing ${v.length})`:''}`;}
+$('#bm_tbl thead').addEventListener('click',e=>{const k=e.target.getAttribute('data-k'); if(!k) return; BM.asc = BM.sortKey===k ? !BM.asc : true; BM.sortKey=k; renderBM();});
+$('#bm_tbl tbody').addEventListener('click',e=>{const tr=e.target.closest('tr'); if(!tr) return; const id=+tr.dataset.id; BM.sel=BM.rows.find(r=>r.id===id); bmSetForm(BM.sel); $('#bm_update').disabled=false; $('#bm_delete').disabled=false; $('#bm_sel').textContent=`Editing #${id}`;});
+$('#bm_save').onclick=async()=>{ const rec={...bmGetForm(), createdAt:new Date().toISOString()}; rec.id=await DBops.add('body_metrics',rec); BM.rows.push(rec); bmClear(); renderBM();};
+$('#bm_update').onclick=async()=>{ if(!BM.sel) return; const upd={...BM.sel, ...bmGetForm()}; await DBops.put('body_metrics',upd); BM.rows[BM.rows.findIndex(x=>x.id===upd.id)]=upd; BM.sel=null; bmClear(); renderBM();};
+$('#bm_delete').onclick=async()=>{ if(!BM.sel) return; await DBops.del('body_metrics',BM.sel.id); BM.rows=BM.rows.filter(r=>r.id!==BM.sel.id); BM.sel=null; bmClear(); renderBM();};
+
+/* Backup / Restore / Export */
+async function dumpAll(){ const names=['foods','exercises','food_logs','workouts','goals','body_metrics']; const out={}; for(const n of names) out[n]=await DBops.all(n); out._meta={exportedAt:new Date().toISOString(),version:2}; return new Blob([JSON.stringify(out,null,2)],{type:'application/json'}); }
+async function backupJSON(){ const b=await dumpAll(); download('fitnut_backup.json', await b.text(), 'application/json'); }
+let chosenHandle=null;
+async function chooseBackupFile(){ if(!window.showSaveFilePicker){ alert('Browser does not support file picker write. Use Backup JSON.'); return; } chosenHandle=await showSaveFilePicker({suggestedName:'fitnut_backup.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});}
+async function backupToChosen(){ try{ if(!chosenHandle){ await chooseBackupFile(); if(!chosenHandle) return; }
+  const perm=(await chosenHandle.queryPermission({mode:'readwrite'}))==='granted'||(await chosenHandle.requestPermission({mode:'readwrite'}))==='granted'; if(!perm) return alert('No write permission.');
+  const w=await chosenHandle.createWritable(); await w.write(await dumpAll()); await w.close(); }catch(e){ alert('Backup failed: '+e); } }
+function triggerRestore(){ $('#restore_file').click(); }
+function clearStore(name){ return new Promise((res,rej)=>{ const q=store(name,'readwrite').clear(); q.onsuccess=()=>res(); q.onerror=()=>rej(q.error); }); }
+async function restoreData(obj){ const names=['foods','exercises','food_logs','workouts','goals','body_metrics']; for(const n of names){ await clearStore(n); const arr=Array.isArray(obj[n])?obj[n]:[]; for(const r of arr){ const tmp={...r}; delete tmp.id; await DBops.add(n,tmp);} } }
+$('#restore_file').addEventListener('change',async e=>{ const f=e.target.files?.[0]; if(!f) return; let data; try{ data=JSON.parse(await f.text()); }catch{ alert('Invalid JSON'); e.target.value=''; return; }
+  if(!confirm('Restore will replace current data. Continue?')){ e.target.value=''; return; } await restoreData(data); location.reload(); });
+
+/* init */
+(async()=>{ await openDB();
+  const t=today();
+  // Foods
+  Food.rows=await DBops.all('foods'); renderFoods();
+  // Exercises
+  Ex.rows=await DBops.all('exercises'); renderEx();
+  // Daily log
+  Log.rows=await DBops.all('food_logs'); $('#dl_date').value=t; $('#dl_filter_date').value=t; renderLog();
+  // Workouts
+  WO.rows=await DBops.all('workouts'); $('#w_date').value=t; $('#w_filter_date').value=t; renderWO();
+  // Goals
+  await loadGoals();
+  // Body metrics
+  BM.rows=await DBops.all('body_metrics'); $('#bm_date').value=t; $('#bm_filter_date').value=t; renderBM();
+})();
+</script>
+</body>
+</html>
