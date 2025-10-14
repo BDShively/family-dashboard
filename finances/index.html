@@ -1,33 +1,51 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- /family-dashboard/finances/index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Finances</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>tailwind.config={theme:{extend:{colors:{brand:{bg:'#0b1220',card:'#0f1a2b',ink:'#e6eefc',mute:'#9db1d1',ac:'#2b6cb0'}},boxShadow:{card:'0 8px 24px rgba(0,0,0,0.35)'},borderRadius:{xl2:'1.25rem'}}}}</script>
-</head><body class="bg-brand-bg text-brand-ink min-h-screen">
-<div class="max-w-6xl mx-auto p-4 md:p-8">
-  <header class="flex items-center justify-between mb-8">
-    <a href="../index.html" class="px-3 py-2 rounded-lg bg-black/30 border border-white/10 hover:border-brand-ac/60">&larr; Dashboard</a>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--bg:#0b1220;--bg2:#0f1a2b;--card:#111832;--muted:#9db1d1;--fg:#e6eefc}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:linear-gradient(160deg,var(--bg),var(--bg2));color:var(--fg)}
+a{color:inherit;text-decoration:none}.wrap{max-width:1200px;margin:auto;padding:18px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
+.muted{color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+.tile{display:flex;justify-content:space-between;align-items:center;padding:16px;border:1px solid #2b325a;border-radius:14px;background:#111832}
+.tile:hover{outline:2px solid #2b6cb0}
+h1{margin:6px 0 12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><a class="btn" href="/family-dashboard/index.html">Dashboard</a></div>
     <div id="auth"></div>
   </header>
-  <h1 class="text-2xl md:text-3xl font-semibold tracking-tight mb-4">Finances</h1>
-  <nav class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-    <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60" href="./income.html">Income</a>
-    <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60" href="./expenses.html">Expenses</a>
-    <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60" href="./bills.html">Bills</a>
-    <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60" href="./debts.html">Debts</a>
-    <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60" href="./transactions.html">All Transactions</a>
-    <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60" href="./reports.html">Reports</a>
-    <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60" href="./tsp.html">TSP</a>
-    <a class="p-5 rounded-xl2 bg-brand-card shadow-card border border-white/5 hover:border-brand-ac/60" href="./settings.html">Settings</a>
-  </nav>
-  <main class="p-6 rounded-xl2 bg-brand-card shadow-card border border-white/5"><p class="text-brand-mute text-sm">Choose a subpage.</p></main>
+
+  <h1>Finances</h1>
+  <div class="grid">
+    <a class="tile" href="./income.html"><span>Income</span><span class="muted">Brandy · Beau · Other</span></a>
+    <a class="tile" href="./expenses.html"><span>Expenses</span><span class="muted">Categories</span></a>
+    <a class="tile" href="./bills.html"><span>Bills</span><span class="muted">Recurring</span></a>
+    <a class="tile" href="./debts.html"><span>Debts</span><span class="muted">Balances</span></a>
+    <a class="tile" href="./investments.html"><span>Investments</span><span class="muted">TSP</span></a>
+    <a class="tile" href="./goals.html"><span>Goals</span><span class="muted">Savings · Payoff</span></a>
+  </div>
 </div>
+
 <script type="module">
-  import { auth,onAuthStateChanged,signOutUser } from "/family-dashboard/js/firebase-init.js";
-  const box=document.getElementById('auth');
-  onAuthStateChanged(auth,u=>{ if(!u){location.href="/family-dashboard/main/index.html";return}
-    box.innerHTML=`<div class="flex items-center gap-2"><span class="text-sm text-brand-mute">${u.email}</span>
-    <a id="out" class="px-3 py-2 rounded-lg bg-black/30 border border-white/10 hover:border-brand-ac/60" href="#">Sign out</a></div>`;
-    document.getElementById('out').onclick=e=>{e.preventDefault();signOutUser()}
-  })
-</script></body></html>
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{
+    if(!u){ location.href=LOGIN; return; }
+    const c=document.getElementById('auth');
+    c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
+  });
+</script>
+</body>
+</html>
