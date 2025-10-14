@@ -32,10 +32,10 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
     <div><label>Notes</label><input id="x_notes"></div>
   </div>
   <div style="margin-top:12px">
-    <button class="btn" id="x_save">Save</button>
-    <button class="btn" id="x_update" disabled>Update</button>
-    <button class="btn" id="x_delete" disabled>Delete</button>
-    <button class="btn" id="x_seed">Load Demo</button>
+    <button class="btn" id="x_save"   type="button">Save</button>
+    <button class="btn" id="x_update" type="button" disabled>Update</button>
+    <button class="btn" id="x_delete" type="button" disabled>Delete</button>
+    <button class="btn" id="x_seed"   type="button">Load Demo</button>
     <span id="x_sel" class="muted"></span>
   </div>
 </div>
@@ -54,18 +54,10 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
 </div>
 
 <script type="module">
-  import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
   import { makeFSList, $, addMany } from "./fitness.js";
-  import { collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
   const LOGIN="/family-dashboard/main/index.html";
-  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;} authUI(u.email); });
-
-  function authUI(email){
-    const c=document.getElementById('auth');
-    c.innerHTML=`<span class="muted">${email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
-    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
-  }
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;} const c=document.getElementById('auth'); c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`; signout.onclick=(e)=>{e.preventDefault();signOutUser();}; });
 
   const ctx = makeFSList({
     store:'fitness_exercises',
@@ -80,7 +72,7 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
     clearForm:()=>{ ['#x_name','#x_met','#x_notes'].forEach(s=>$(s).value=''); $('#x_type').value='Cardio'; }
   });
 
-  $('#x_seed').onclick = async ()=>{
+  document.getElementById('x_seed').onclick = async ()=>{
     await addMany('fitness_exercises', [
       {name:'Running (6 mph)',type:'Cardio',met:9.8,notes:''},
       {name:'Cycling (moderate)',type:'Cardio',met:7.5,notes:''},
