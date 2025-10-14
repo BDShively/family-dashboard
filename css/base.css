@@ -1,0 +1,3 @@
+/* force readable text on dark buttons */
+button, .btn, .tab { color:#fff !important; }
+button:disabled, .btn:disabled { color:rgba(255,255,255,.65) !important; }
