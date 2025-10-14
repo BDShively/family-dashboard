@@ -1,21 +1,17 @@
 <!-- /family-dashboard/eads/tracker/project.html -->
-<!doctype html>
-<html lang="en">
-<head>
+<!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>EADS · Projects</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
-  body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}
-  a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
-  .btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
-  .card{background:#111832;border:1px solid #2b325a;border-radius:14px;padding:12px;margin-bottom:12px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
-  label{font-size:12px;color:#9db1d1}input,select,textarea{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330;color:#e6eefc}textarea{min-height:80px}
-  .muted{color:#9db1d1;font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #2b325a;text-align:left;font-size:14px}
-</style>
-</head>
-<body>
+body{font-family:system-ui,Inter;margin:0;padding:18px;color:#e6eefc;background:#0b1220}
+a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
+.card{background:#111832;border:1px solid #2b325a;border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
+label{font-size:12px;color:#9db1d1}input,select,textarea{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330;color:#e6eefc}textarea{min-height:80px}
+.muted{color:#9db1d1;font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #2b325a;text-align:left;font-size:14px}
+</style></head><body>
 <header>
   <div><a class="btn" href="./index.html">&larr; EADS</a></div>
   <div id="auth"></div>
@@ -68,10 +64,11 @@
   import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
   import { gate,$ } from './eads.js'; gate();
   import { makeFSList } from './eads-fs.js';
+  const LOGIN="/family-dashboard/main/index.html";
   onAuthStateChanged(auth,(u)=>{
-    if(!u){ location.href="/family-dashboard/main/index.html"; return; }
+    if(!u){ location.href=LOGIN; return; }
     const c=document.getElementById('auth'); c.innerHTML = `<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
-    document.getElementById('signout').onclick=(e)=>{e.preventDefault();signOutUser();};
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
   });
 
   makeFSList({
@@ -87,9 +84,4 @@
       <td>${r.priority||''}</td><td>${r.due||''}</td>
     </tr>`,
     getForm:()=>({ name:$('#p_name').value.trim(), owner:$('#p_owner').value.trim(), status:$('#p_status').value, priority:$('#p_pri').value, start:$('#p_start').value, due:$('#p_due').value, notes:$('#p_notes').value.trim() }),
-    setForm:r=>{ $('#p_name').value=r.name||''; $('#p_owner').value=r.owner||''; $('#p_status').value=r.status||'Not Started'; $('#p_pri').value=r.priority||'Low'; $('#p_start').value=r.start||''; $('#p_due').value=r.due||''; $('#p_notes').value=r.notes||''; },
-    clearForm:()=>{ ['#p_name','#p_owner','#p_start','#p_due','#p_notes'].forEach(s=>$(s).value=''); $('#p_status').value='Not Started'; $('#p_pri').value='Low'; $('#p_update').disabled=$('#p_delete').disabled=true; $('#p_sel').textContent=''; }
-  });
-</script>
-</body>
-</html>
+    setForm:r=>{ $('#p_name').value=r.name||''; $('#p_owner').value=r.owner||''; $('#p_status').value=r.status||'Not Started'; $('#p_pri').value=r.priority||'Low'; $('#p_start').value=r.start||''; $('#
