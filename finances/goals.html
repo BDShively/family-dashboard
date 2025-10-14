@@ -1,0 +1,92 @@
+<!-- /family-dashboard/finances/goals.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Finances · Goals</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+body{margin:0;font-family:system-ui,Inter;background:#0b1220;color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--muted)}input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+.muted{color:var(--muted);font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted)}
+.bar{height:10px;border-radius:999px;background:#0e132a;border:1px solid #2b325a;overflow:hidden}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,#6b7280,#d1d5db)}
+</style>
+</head>
+<body>
+<header>
+  <div><a class="btn" href="./index.html">&larr; Finances</a></div>
+  <div id="auth"></div>
+</header>
+
+<h1>Goals</h1>
+
+<div class="card">
+  <div class="row">
+    <div><label>Name</label><input id="f_name" placeholder="e.g., Emergency Fund"></div>
+    <div><label>Type</label><select id="f_type"><option>Savings</option><option>Debt Payoff</option></select></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Target Amount ($)</label><input id="f_target" type="number" step="0.01"></div>
+    <div><label>Current Amount ($)</label><input id="f_current" type="number" step="0.01"></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label>Target Date</label><input id="f_due" type="date"></div>
+    <div><label>Notes</label><input id="f_notes"></div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="btn" id="save">Save</button>
+    <button class="btn" id="update" disabled>Update</button>
+    <button class="btn" id="remove" disabled>Delete</button>
+    <span id="sel" class="muted"></span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div><label>Type Filter</label><select id="filter"><option value="">All</option><option>Savings</option><option>Debt Payoff</option></select></div>
+    <div><label>Search</label><input id="search" placeholder="Name or notes"></div>
+  </div>
+  <div id="count" class="muted" style="margin:8px 0"></div>
+  <table id="tbl">
+    <thead><tr>
+      <th data-k="name">Name</th><th data-k="type">Type</th><th data-k="target">Target</th><th data-k="current">Current</th><th data-k="due">Target Date</th><th data-k="notes">Notes</th><th>Progress</th>
+    </tr></thead><tbody></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  import { makeFSList, $ } from './fin.js';
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{ if(!u){ location.href=LOGIN; return; } const c=document.getElementById('auth'); c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`; signout.onclick=(e)=>{e.preventDefault();signOutUser();}; });
+
+  makeFSList({
+    store:'finances_goals',
+    $thead: $('#tbl thead'), $tbody: $('#tbl tbody'),
+    $save: $('#save'), $update: $('#update'), $delete: $('#remove'),
+    $selInfo: $('#sel'), $search: $('#search'), $filter: $('#filter'),
+    defaultSort:'due',
+    filterFn:(r,f)=> r.type===f,
+    rowHTML:r=>{
+      const t=r.target||0, c=r.current||0, pct=t? Math.max(0,Math.min(100,(c/t*100))):0;
+      return `<tr data-id="${r.id}">
+        <td>${r.name||''}</td><td>${r.type||''}</td><td>${fmt(r.target)}</td><td>${fmt(r.current)}</td><td>${r.due||''}</td><td>${r.notes||''}</td>
+        <td><div class="bar"><i style="width:${pct}%"></i></div></td>
+      </tr>`;
+    },
+    getForm:()=>({ name:$('#f_name').value.trim(), type:$('#f_type').value, target:num($('#f_target').value), current:num($('#f_current').value), due:$('#f_due').value, notes:$('#f_notes').value.trim() }),
+    setForm:r=>{ $('#f_name').value=r.name||''; $('#f_type').value=r.type||'Savings'; $('#f_target').value=r.target??''; $('#f_current').value=r.current??''; $('#f_due').value=r.due||''; $('#f_notes').value=r.notes||''; },
+    clearForm:()=>{ ['#f_name','#f_target','#f_current','#f_due','#f_notes'].forEach(s=>$(s).value=''); $('#f_type').value='Savings'; }
+  });
+
+  function num(v){ return v? Number(v): null } function fmt(v){ return v==null?'': Number(v).toFixed(2) }
+</script>
+</body>
+</html>
