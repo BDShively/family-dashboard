@@ -1,1 +1,62 @@
+<!-- /eads/tracker/decorations.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EADS · Decorations</title>
+<link rel="stylesheet" href="./eads.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="crumbs">
+      <a class="btn" href="/family-dashboard/main/index.html">Dashboard</a><span>›</span>
+      <a class="btn" href="./index.html">EADS</a><span>›</span>
+      <span class="btn" style="opacity:.6;pointer-events:none">Decorations</span>
+    </div>
+    <div id="auth"></div>
+  </header>
+
+  <h1>Decorations</h1>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Member</label><input id="dc_member"></div>
+      <div><label>Type</label><input id="dc_type" placeholder="MSM/JSAM/etc"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Target Present Date</label><input id="dc_due" type="date"></div>
+      <div><label>Notes</label><input id="dc_notes"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>Workflow</label>
+        <div class="muted">Track step completions on the Tracker page later.</div>
+      </div>
+      <div></div>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" id="dc_save">Save</button>
+      <button class="btn" id="dc_update" disabled>Update</button>
+      <button class="btn" id="dc_delete" disabled>Delete</button>
+      <span id="dc_sel" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="row">
+      <div><label>Search</label><input id="dc_search" placeholder="Search member, type, notes"></div>
+      <div></div>
+    </div>
+    <div class="muted" id="dc_count" style="margin:8px 0">Items: 0</div>
+    <table id="dc_tbl"><thead><tr>
+      <th>Created</th><th>Member</th><th>Type</th><th>Due</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<script type="module">
+  import {gate} from './eads.js'; gate();
+</script>
+</body>
+</html>
 
