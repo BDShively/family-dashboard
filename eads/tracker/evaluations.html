@@ -1,86 +1,311 @@
-<!-- /family-dashboard/eads/tracker/evaluations.html -->
-<!doctype html>
-<html lang="en">
-<head>
+<!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>EADS · Evaluations</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
-  body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}
-  a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
-  .btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
-  .card{background:#111832;border:1px solid #2b325a;border-radius:14px;padding:12px;margin-bottom:12px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
-  label{font-size:12px;color:#9db1d1}input,select{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330;color:#e6eefc}
-  .muted{color:#9db1d1;font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #2b325a;text-align:left;font-size:14px}
+:root{--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:#0b1220;color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:1000px){.row{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--muted)}
+input,textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
+.step{display:flex;justify-content:space-between;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:#0f1330;margin-bottom:6px}
+.step.current{outline:2px solid #2b6cb0}
+.badge{padding:2px 8px;border:1px solid #2b325a;border-radius:999px;background:#0e1430;font-size:12px}
+.kit{display:flex;gap:6px;flex-wrap:wrap}
 </style>
 </head>
 <body>
 <header>
-  <div><a class="btn" href="./index.html">&larr; EADS</a></div>
+  <div><a class="btn" href="/family-dashboard/eads/tracker/index.html">&larr; EADS Tracker</a></div>
   <div id="auth"></div>
 </header>
 
 <h1>Evaluations</h1>
 
+<!-- Create / edit an evaluation record -->
 <div class="card">
   <div class="row">
-    <div><label>Member</label><input id="ev_member"></div>
-    <div><label>Type</label><select id="ev_type"><option>OPB</option><option>EPB</option></select></div>
+    <div><label>Member</label><input id="f_member" placeholder="Last, First MI"></div>
+    <div><label>Status Note</label><input id="f_note" placeholder="optional"></div>
   </div>
   <div class="row" style="margin-top:10px">
-    <div><label>SCOD / Due</label><input id="ev_due" type="date"></div>
-    <div><label>Notes</label><input id="ev_notes"></div>
+    <div><label>Period Start</label><input id="f_start" type="date"></div>
+    <div><label>Period End</label><input id="f_end" type="date"></div>
   </div>
-  <div style="margin-top:12px">
-    <button class="btn" id="ev_save">Save</button>
-    <button class="btn" id="ev_update" disabled>Update</button>
-    <button class="btn" id="ev_delete" disabled>Delete</button>
-    <span id="ev_sel" class="muted"></span>
+  <div style="margin-top:10px">
+    <button class="btn" id="save"   type="button">Save</button>
+    <button class="btn" id="update" type="button" disabled>Update</button>
+    <button class="btn" id="remove" type="button" disabled>Delete</button>
+    <span id="sel" class="muted"></span>
   </div>
+  <div class="muted" style="margin-top:8px">New records start at step 1: Flight Draft.</div>
 </div>
 
+<!-- List -->
 <div class="card">
   <div class="row">
-    <div><label>Search</label><input id="ev_search" placeholder="Search member, notes"></div>
-    <div></div>
+    <div><label>Search</label><input id="search" placeholder="member, note"></div>
+    <div><label>Filter by Open/Closed</label>
+      <select id="filter">
+        <option value="">All</option>
+        <option value="open">Open</option>
+        <option value="closed">Closed</option>
+      </select>
+    </div>
   </div>
-  <div id="ev_count" class="muted" style="margin:8px 0"></div>
-  <table id="ev_tbl">
+  <div id="count" class="muted" style="margin:8px 0"></div>
+  <table id="tbl">
     <thead><tr>
-      <th data-k="createdAt">Created</th>
       <th data-k="member">Member</th>
-      <th data-k="type">Type</th>
-      <th data-k="due">Due</th>
+      <th>Period</th>
+      <th>Current Step</th>
+      <th>Closed</th>
+      <th>Note</th>
+      <th>Open</th>
     </tr></thead>
     <tbody></tbody>
   </table>
 </div>
 
+<!-- Step controller -->
+<div class="card" id="detail" style="display:none">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h3 style="margin:0" id="d_title">Steps</h3>
+    <div class="kit">
+      <button class="btn" id="btn_complete" type="button">Complete current</button>
+      <button class="btn" id="btn_reopen"   type="button">Reopen previous</button>
+      <button class="btn" id="btn_close"    type="button">Close now</button>
+    </div>
+  </div>
+  <div id="steps" style="margin-top:10px"></div>
+</div>
+
 <script type="module">
   import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
-  import { gate,$ } from './eads.js'; gate();
-  import { makeFSList } from './eads-fs.js';
-  onAuthStateChanged(auth,(u)=>{
-    if(!u){ location.href="/family-dashboard/main/index.html"; return; }
-    const c=document.getElementById('auth'); c.innerHTML = `<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
-    document.getElementById('signout').onclick=(e)=>{e.preventDefault();signOutUser();};
+  import { db } from "/family-dashboard/js/firebase-init.js";
+  import {
+    collection, getDocs, addDoc, updateDoc, deleteDoc, doc,
+    serverTimestamp, query, orderBy, getDoc
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  // ---- auth ----
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
+    const c=document.getElementById('auth');
+    c.innerHTML=\`<span class="muted">\${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>\`;
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
   });
 
-  makeFSList({
-    store:'eads_evaluations',
-    $thead: $('#ev_tbl thead'), $tbody: $('#ev_tbl tbody'),
-    $save: $('#ev_save'), $update: $('#ev_update'), $delete: $('#ev_delete'),
-    $selInfo: $('#ev_sel'), $search: $('#ev_search'),
-    defaultSort:'due',
-    rowHTML:r=>`<tr data-id="${r.id}">
-      <td>${r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString() : ''}</td>
-      <td>${r.member||''}</td><td>${r.type||''}</td><td>${r.due||''}</td>
-    </tr>`,
-    getForm:()=>({ member:$('#ev_member').value.trim(), type:$('#ev_type').value, due:$('#ev_due').value, notes:$('#ev_notes').value.trim(), step:1, prevStepCompletedAt:'', history:[] }),
-    setForm:r=>{ $('#ev_member').value=r.member||''; $('#ev_type').value=r.type||'OPB'; $('#ev_due').value=r.due||''; $('#ev_notes').value=r.notes||''; },
-    clearForm:()=>{ ['#ev_member','#ev_due','#ev_notes'].forEach(s=>$(s).value=''); $('#ev_type').value='OPB'; $('#ev_update').disabled=$('#ev_delete').disabled=true; $('#ev_sel').textContent=''; }
-  });
+  // ---- constants ----
+  const STEP_NAMES = [
+    "Flight Draft",
+    "SEO Review",
+    "Flt Corrections",
+    "SEL/CCD Review",
+    "Flt Corrections",
+    "CC Review",
+    "Flt Corrections",
+    "Rater Sign",
+    "CC Sign",
+    "Shirt QC",
+    "Ratee Sign",
+    "MPF" // closeout
+  ];
+
+  // ---- state ----
+  let ROWS=[], SEL=null; // SEL = doc id
+
+  // ---- helpers ----
+  const $=(s)=>document.querySelector(s);
+  const fmt=(n)=>n==null?'':Number(n).toFixed(1);
+  const dateStr=(ts)=> {
+    if(!ts) return '';
+    const d = ts.seconds ? new Date(ts.seconds*1000) : new Date(ts);
+    const p = n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  };
+
+  // ---- load list ----
+  async function load(){
+    const snap = await getDocs(query(collection(db,'eads_evals'), orderBy('member')));
+    ROWS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    render();
+  }
+  function render(){
+    const q = ($('#search').value||'').toLowerCase();
+    const f = $('#filter').value;
+    const rows = ROWS
+      .filter(r=>!q || `${r.member} ${r.note||''}`.toLowerCase().includes(q))
+      .filter(r=> f==='' || (f==='open' ? !r.closed : !!r.closed));
+    $('#tbl tbody').innerHTML = rows.map(r=>{
+      const cur = STEP_NAMES[r.stepIndex||0] || '—';
+      return `<tr data-id="${r.id}">
+        <td>${r.member||''}</td>
+        <td>${r.start||''} → ${r.end||''}</td>
+        <td>${cur}</td>
+        <td>${r.closed?'Yes':'No'}</td>
+        <td>${r.note||''}</td>
+        <td><button class="btn" type="button" data-open="${r.id}">Open</button></td>
+      </tr>`;
+    }).join('');
+    $('#count').textContent = `${rows.length} result(s)`;
+
+    // row select into form
+    $('#tbl tbody').querySelectorAll('tr').forEach(tr=>{
+      tr.onclick = (e)=>{ if(e.target.dataset.open) return; select(tr.dataset.id); };
+    });
+    // open detail
+    $('#tbl tbody').querySelectorAll('button[data-open]').forEach(b=>{
+      b.onclick = (e)=>{ e.stopPropagation(); openDetail(b.dataset.open); };
+    });
+  }
+
+  function select(id){
+    SEL = id;
+    const r = ROWS.find(x=>x.id===id); if(!r) return;
+    $('#f_member').value=r.member||''; $('#f_note').value=r.note||'';
+    $('#f_start').value=r.start||'';   $('#f_end').value=r.end||'';
+    $('#update').disabled=false; $('#remove').disabled=false;
+    $('#sel').textContent=`Selected ${id}`;
+  }
+  function clearForm(){
+    ['#f_member','#f_note','#f_start','#f_end'].forEach(s=>$(s).value='');
+    $('#update').disabled=true; $('#remove').disabled=true; $('#sel').textContent='';
+    SEL=null;
+  }
+
+  // ---- CRUD for record ----
+  async function onSave(){
+    const base = {
+      member: $('#f_member').value.trim(),
+      note: $('#f_note').value.trim(),
+      start: $('#f_start').value, end: $('#f_end').value,
+      createdAt: serverTimestamp(),
+      stepIndex: 0,
+      steps: STEP_NAMES.map(n=>({ name:n, doneAt: null })),
+      closed: false
+    };
+    await addDoc(collection(db,'eads_evals'), base);
+    clearForm(); await load();
+  }
+  async function onUpdate(){
+    if(!SEL) return;
+    const patch = { member:$('#f_member').value.trim(), note:$('#f_note').value.trim(), start:$('#f_start').value, end:$('#f_end').value };
+    await updateDoc(doc(db,'eads_evals',SEL), patch);
+    clearForm(); await load();
+  }
+  async function onDelete(){
+    if(!SEL) return;
+    if(!confirm('Delete this evaluation?')) return;
+    await deleteDoc(doc(db,'eads_evals',SEL));
+    clearForm(); $('#detail').style.display='none'; await load();
+  }
+
+  // ---- detail: steps ----
+  async function openDetail(id){
+    SEL = id; // set selection
+    $('#update').disabled=false; $('#remove').disabled=false;
+    $('#sel').textContent=`Selected ${id}`;
+    const r = ROWS.find(x=>x.id===id) || (await getDoc(doc(db,'eads_evals',id))).data();
+    $('#d_title').textContent = `Steps · ${r.member||''} · ${r.start||''} → ${r.end||''}`;
+    renderSteps(r);
+    $('#detail').style.display='block';
+  }
+
+  function renderSteps(rec){
+    const cur = rec.stepIndex||0;
+    const lastIdx = STEP_NAMES.length-1;
+    $('#steps').innerHTML = STEP_NAMES.map((name,i)=>{
+      const done = rec.steps?.[i]?.doneAt;
+      const isCur = i===cur && !rec.closed;
+      const when = done? dateStr(done): '';
+      const tag = done? `<span class="badge">Done ${when}</span>` : (isCur? `<span class="badge">Current</span>`:'');
+      return `<div class="step ${isCur?'current':''}">
+        <div><div>${i+1}. ${name}</div><div class="muted">${tag}</div></div>
+        <div class="kit">
+          <button class="btn" type="button" data-set="${i}">Set current</button>
+          ${done? `<button class="btn" type="button" data-clear="${i}">Clear date</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+
+    // buttons top
+    $('#btn_complete').disabled = rec.closed || cur>=lastIdx;
+    $('#btn_reopen').disabled   = cur<=0 || !!(rec.steps?.[cur]?.doneAt===null && rec.steps?.[cur-1]?.doneAt===null);
+    $('#btn_close').disabled    = rec.closed;
+
+    // wire per-step actions
+    $('#steps').querySelectorAll('button[data-set]').forEach(b=>{
+      b.onclick = ()=> setCurrent(rec.id, Number(b.dataset.set));
+    });
+    $('#steps').querySelectorAll('button[data-clear]').forEach(b=>{
+      b.onclick = ()=> clearDate(rec.id, Number(b.dataset.clear));
+    });
+
+    // wire header actions
+    $('#btn_complete').onclick = ()=> completeCurrent(rec.id);
+    $('#btn_reopen').onclick   = ()=> reopenPrevious(rec.id);
+    $('#btn_close').onclick    = ()=> closeNow(rec.id);
+  }
+
+  async function setCurrent(id, idx){
+    const ref = doc(db,'eads_evals',id);
+    const r = ROWS.find(x=>x.id===id);
+    // clear doneAt from this and later steps when jumping
+    const steps = (r.steps||STEP_NAMES.map(n=>({name:n,doneAt:null}))).map((s,i)=> i>=idx ? ({...s, doneAt:null}) : s);
+    await updateDoc(ref, { stepIndex: idx, steps, closed:false });
+    await load(); openDetail(id);
+  }
+  async function clearDate(id, idx){
+    const ref = doc(db,'eads_evals',id);
+    const r = ROWS.find(x=>x.id===id);
+    const steps = (r.steps||[]).map((s,i)=> i===idx ? ({...s, doneAt:null}) : s);
+    const stepIndex = Math.min(r.stepIndex||0, idx);
+    await updateDoc(ref, { steps, stepIndex, closed:false });
+    await load(); openDetail(id);
+  }
+  async function completeCurrent(id){
+    const ref = doc(db,'eads_evals',id);
+    const r = ROWS.find(x=>x.id===id);
+    const idx = r.stepIndex||0;
+    const steps = (r.steps||[]).slice();
+    steps[idx] = { name: STEP_NAMES[idx], doneAt: serverTimestamp() };
+    const lastIdx = STEP_NAMES.length-1;
+    const nextIdx = Math.min(idx+1, lastIdx);
+    const closed = (idx===lastIdx); // MPF completed
+    await updateDoc(ref, { steps, stepIndex: nextIdx, closed });
+    await load(); openDetail(id);
+  }
+  async function reopenPrevious(id){
+    const ref = doc(db,'eads_evals',id);
+    const r = ROWS.find(x=>x.id===id);
+    const idx = Math.max((r.stepIndex||0)-1, 0);
+    const steps = (r.steps||[]).map((s,i)=> i>=idx ? ({...s, doneAt:null}) : s);
+    await updateDoc(ref, { steps, stepIndex: idx, closed:false });
+    await load(); openDetail(id);
+  }
+  async function closeNow(id){
+    const ref = doc(db,'eads_evals',id);
+    const r = ROWS.find(x=>x.id===id);
+    const steps = (r.steps||[]).map((s,i)=> i<STEP_NAMES.length-1 ? s : ({...s, doneAt: serverTimestamp()}));
+    await updateDoc(ref, { steps, stepIndex: STEP_NAMES.length-1, closed:true });
+    await load(); openDetail(id);
+  }
+
+  // ---- wire top buttons ----
+  document.getElementById('save').onclick   = ()=>onSave().catch(e=>alert(e.message||e));
+  document.getElementById('update').onclick = ()=>onUpdate().catch(e=>alert(e.message||e));
+  document.getElementById('remove').onclick = ()=>onDelete().catch(e=>alert(e.message||e));
+  document.getElementById('search').oninput = render;
+  document.getElementById('filter').oninput = render;
+
+  load().catch(e=>alert(e.message||e));
 </script>
-</body>
-</html>
+</body></html>
