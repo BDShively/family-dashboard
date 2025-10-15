@@ -1,4 +1,3 @@
-<!-- /family-dashboard/finances/ledger.html -->
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Finances · Ledger</title>
@@ -9,8 +8,10 @@
 a{color:inherit;text-decoration:none}
 header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.btn[disabled]{opacity:.6;cursor:not-allowed}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
-.row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px}@media(max-width:900px){.row{grid-template-columns:1fr 1fr;row-gap:10px}}
+.row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px}
+@media(max-width:900px){.row{grid-template-columns:1fr 1fr;row-gap:10px}}
 label{font-size:12px;color:var(--muted)}
 input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
 .kpis{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
@@ -20,6 +21,8 @@ table{width:100%;border-collapse:collapse}
 th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
 th{color:var(--muted)}
 .badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
+.muted{color:var(--muted);font-size:12px}
+.empty{padding:8px 10px;border:1px dashed var(--line);border-radius:10px;background:#0e1430;color:#b7c6e6}
 </style></head><body>
 <header>
   <div><a class="btn" href="/family-dashboard/finances/index.html">&larr; Finances</a></div>
@@ -39,6 +42,7 @@ th{color:var(--muted)}
 </div>
 
 <div class="card">
+  <div id="empty" class="empty" style="display:none">No entries in this range.</div>
   <table id="tbl">
     <thead><tr>
       <th>Date</th><th>Type</th><th>Source</th><th>Category</th><th>Amount</th><th>Notes</th>
@@ -49,9 +53,7 @@ th{color:var(--muted)}
 
 <script type="module">
   import { auth, onAuthStateChanged, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
-  import {
-    collection, getDocs, query, where
-  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  import { collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
   const LOGIN="/family-dashboard/main/index.html";
   onAuthStateChanged(auth,(u)=>{
@@ -64,6 +66,7 @@ th{color:var(--muted)}
 
   const $ = (s)=>document.querySelector(s);
   const iso = (d)=> d.toISOString().slice(0,10);
+
   function setDefaultRange(){
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -78,40 +81,45 @@ th{color:var(--muted)}
     await refresh();
   }
 
+  // get all rows, then filter by date in JS (works for strings or timestamps)
   async function refresh(){
-    const start = $('#d_start').value;
-    const end   = $('#d_end').value;
-    if(!start || !end){ return; }
+    const btn = $('#btn_range'); btn.disabled=true;
+    const startISO = $('#d_start').value;
+    const endISO   = $('#d_end').value;
+    const start = new Date(startISO+'T00:00:00');
+    const end   = new Date(endISO  +'T23:59:59');
 
-    // collections:
-    // fin_income   {date, source, category, amount, notes}
-    // fin_expenses {date, vendor/source, category, amount, notes}
-    // fin_bills    {dueDate, name, category, amount, notes, paid}
-    const within = (field)=> query(
-      collection(db, COL),
-      where(field, '>=', start),
-      where(field, '<=', end)
-    );
+    // pull all three collections
+    const [incSnap, expSnap, billSnap] = await Promise.all([
+      getDocs(collection(db,'fin_income')),
+      getDocs(collection(db,'fin_expenses')),
+      getDocs(collection(db,'fin_bills'))
+    ]);
 
-    // income
-    let COL='fin_income';
-    const incSnap = await getDocs(within('date'));
-    const income = incSnap.docs.map(d=>({ id:d.id, type:'Income', date:val(d,'date'), source:val(d,'source')||val(d,'name')||'—', cat:val(d,'category')||'Income', amt:num(val(d,'amount')), notes:val(d,'notes')||'' }));
-
-    // expenses
-    COL='fin_expenses';
-    const expSnap = await getDocs(within('date'));
-    const expenses = expSnap.docs.map(d=>({ id:d.id, type:'Expense', date:val(d,'date'), source:val(d,'source')||val(d,'vendor')||'—', cat:val(d,'category')||'Expense', amt:-Math.abs(num(val(d,'amount'))), notes:val(d,'notes')||'' }));
-
-    // bills (treated as expenses by dueDate)
-    COL='fin_bills';
-    const billSnap = await getDocs(within('dueDate'));
-    const bills = billSnap.docs.map(d=>{
-      const paid = !!val(d,'paid');
-      return { id:d.id, type: paid?'Bill (paid)':'Bill', date:val(d,'dueDate'), source:val(d,'name')||'Bill', cat:val(d,'category')||'Bills', amt:-Math.abs(num(val(d,'amount'))), notes:(val(d,'notes')||'')+(paid?' · paid':'') };
+    const income = incSnap.docs.map(d=>{
+      const data=d.data();
+      const dt = toDate(data.date);
+      return { id:d.id, type:'Income', dateISO: toISO(dt), date:dt, source:data.source||data.name||'—', cat:data.category||'Income', amt:num(data.amount), notes:data.notes||'' };
     });
 
-    const rows = [...income, ...expenses, ...bills].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    const expenses = expSnap.docs.map(d=>{
+      const data=d.data();
+      const dt = toDate(data.date);
+      return { id:d.id, type:'Expense', dateISO: toISO(dt), date:dt, source:data.source||data.vendor||'—', cat:data.category||'Expense', amt:-Math.abs(num(data.amount)), notes:data.notes||'' };
+    });
+
+    const bills = billSnap.docs.map(d=>{
+      const data=d.data();
+      const dt = toDate(data.dueDate);
+      const paid = !!data.paid;
+      return { id:d.id, type: paid?'Bill (paid)':'Bill', dateISO: toISO(dt), date:dt, source:data.name||'Bill', cat:data.category||'Bills', amt:-Math.abs(num(data.amount)), notes:(data.notes||'')+(paid?' · paid':'') };
+    });
+
+    // range filter
+    const rows = [...income, ...expenses, ...bills]
+      .filter(r=> r.date && r.date>=start && r.date<=end)
+      .sort((a,b)=> (a.date - b.date) || (a.type>b.type?1:-1));
+
     $('#count').textContent = `${rows.length} items`;
 
     // KPIs
@@ -125,22 +133,28 @@ th{color:var(--muted)}
     // table
     const tb = $('#tbl tbody');
     tb.innerHTML = rows.map(r=>`<tr>
-      <td>${r.date||''}</td>
+      <td>${r.dateISO||''}</td>
       <td>${r.type}</td>
       <td>${esc(r.source)}</td>
       <td>${esc(r.cat)}</td>
       <td>${money(r.amt)}</td>
       <td>${esc(r.notes)}</td>
     </tr>`).join('');
+
+    // empty state
+    $('#empty').style.display = rows.length? 'none':'block';
+    btn.disabled=false;
   }
 
-  function val(doc, k){ const v = doc.data()?.[k]; return tsToISO(v); }
-  function tsToISO(v){
-    if(!v) return v;
-    if(typeof v === 'string') return v;
-    if(v.seconds) return new Date(v.seconds*1000).toISOString().slice(0,10);
-    return v;
+  // helpers
+  function toDate(v){
+    if(!v) return null;
+    if(typeof v==='string') return new Date(v+'T12:00:00'); // avoid TZ shift
+    if(v.seconds) return new Date(v.seconds*1000);
+    if(v instanceof Date) return v;
+    return null;
   }
+  function toISO(d){ return d? d.toISOString().slice(0,10) : ''; }
   function num(v){ return v==null?0:Number(v); }
   function fmt(n){ return n.toLocaleString(undefined,{maximumFractionDigits:2}); }
   function money(n){ const s = n>=0? n : -n; return (n<0?'-':'') + '$' + fmt(s); }
