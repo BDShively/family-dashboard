@@ -1,7 +1,7 @@
 // /family-dashboard/fitness/fitness.js
 import { db } from "/family-dashboard/js/firebase-init.js";
 import {
-  collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp,
+  collection, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp,
   query, where
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
@@ -66,7 +66,7 @@ export async function loadExercises(){
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
 }
 
-/* Daily logs */
+/* Daily logs CRUD */
 export async function addFoodLog(dateISO, foodId, servings){
   const foods = await loadFoods();
   const f = foods.find(x=>x.id===foodId); if(!f) throw new Error('Food not found');
@@ -78,7 +78,6 @@ export async function addFoodLog(dateISO, foodId, servings){
     createdAt: serverTimestamp()
   });
 }
-
 export async function addExerciseLog(dateISO, exId, minutes, kg, note){
   const exs = await loadExercises();
   const x = exs.find(e=>e.id===exId); if(!x) throw new Error('Exercise not found');
@@ -89,20 +88,14 @@ export async function addExerciseLog(dateISO, exId, minutes, kg, note){
     createdAt: serverTimestamp()
   });
 }
-
+export async function updateLog(id, patch){ await updateDoc(doc(db,'fitness_logs',id), patch); }
 export async function deleteLog(id){ await deleteDoc(doc(db,'fitness_logs',id)); }
 
 export async function loadDaily(dateISO){
-  // Removed orderBy to avoid needing a composite index
-  const snap = await getDocs(
-    query(collection(db,'fitness_logs'), where('date','==',dateISO))
-  );
+  // No composite index required
+  const snap = await getDocs(query(collection(db,'fitness_logs'), where('date','==',dateISO)));
   const rows = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-  // client-side sort by createdAt
-  rows.sort((a,b)=>{
-    const as=(a.createdAt?.seconds||0), bs=(b.createdAt?.seconds||0);
-    return as-bs;
-  });
+  rows.sort((a,b)=> (a.createdAt?.seconds||0) - (b.createdAt?.seconds||0));
   const totals = rows.reduce((acc,r)=>{
     if(r.kind==='Food'){ acc.in += (r.cal||0); acc.pro += (r.pro||0); }
     if(r.kind==='Exercise'){ acc.out += (r.cal||0); }
