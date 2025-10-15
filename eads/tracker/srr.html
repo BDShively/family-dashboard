@@ -1,116 +1,185 @@
-<!-- /family-dashboard/eads/tracker/srr.html -->
-<!doctype html>
-<html lang="en">
-<head>
+<!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>EADS · SRR</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
-  body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}
-  a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
-  .btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
-  .card{background:#111832;border:1px solid #2b325a;border-radius:14px;padding:12px;margin-bottom:12px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
-  label{font-size:12px;color:#9db1d1}input,select,textarea{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330;color:#e6eefc}textarea{min-height:80px}
-  .muted{color:#9db1d1;font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #2b325a;text-align:left;font-size:14px}
-</style>
-</head>
+:root{--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:#0b1220;color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:900px){.row{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--muted)}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted)}
+.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
+.muted{color:var(--muted);font-size:12px}
+</style></head>
 <body>
 <header>
-  <div><a class="btn" href="./index.html">&larr; EADS</a></div>
+  <div><a class="btn" href="/family-dashboard/eads/tracker/index.html">&larr; EADS Tracker</a></div>
   <div id="auth"></div>
 </header>
 
 <h1>SRR</h1>
 
+<!-- Form -->
 <div class="card">
   <div class="row">
-    <div><label>Member</label><input id="sr_member"></div>
-    <div><label>Year</label><input id="sr_year" type="number" min="2000" max="2100"></div>
+    <div><label>Member</label><input id="f_member" placeholder="Last, First MI"></div>
+    <div><label>Year</label><input id="f_year" type="number" min="2000" max="2100"></div>
   </div>
   <div class="row" style="margin-top:10px">
-    <div><label>Quarter</label><select id="sr_quarter"><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
-    <div><label>Uniform</label><select id="sr_uniform"><option>Service Dress</option><option>OCP</option></select></div>
+    <div><label>Date</label><input id="f_date" type="date"></div>
+    <div><label>Status</label><input id="f_status" placeholder="e.g., Draft, Submitted"></div>
   </div>
-  <div class="row" style="margin-top:10px">
-    <div><label>Inspection</label><select id="sr_insp"><option>Complete</option><option>Pending</option><option>Exempt</option></select></div>
-    <div><label>RAB</label><select id="sr_rab"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
+  <div style="margin-top:10px">
+    <label>Notes</label>
+    <textarea id="f_notes" placeholder="optional"></textarea>
   </div>
-  <div class="row" style="margin-top:10px">
-    <div><label>CAC</label><select id="sr_cac"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
-    <div><label>vRED</label><select id="sr_vred"><option>Go</option><option>No Go</option><option>N/A</option></select></div>
-  </div>
-  <div style="margin-top:10px"><label>Notes</label><textarea id="sr_notes"></textarea></div>
-  <div style="margin-top:12px">
-    <button class="btn" id="sr_save">Save</button>
-    <button class="btn" id="sr_update" disabled>Update</button>
-    <button class="btn" id="sr_delete" disabled>Delete</button>
-    <span id="sr_sel" class="muted"></span>
+  <div style="margin-top:10px">
+    <button class="btn" id="save"   type="button">Save</button>
+    <button class="btn" id="update" type="button" disabled>Update</button>
+    <button class="btn" id="remove" type="button" disabled>Delete</button>
+    <span id="sel" class="muted"></span>
   </div>
 </div>
 
+<!-- List + Filters -->
 <div class="card">
   <div class="row">
-    <div><label>Filter Quarter</label><select id="sr_filterQ"><option value="">All</option><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
-    <div><label>Filter Year</label><input id="sr_filterY" type="number" min="2000" max="2100" placeholder="YYYY"></div>
+    <div><label>Search</label><input id="q" placeholder="member, status, notes"></div>
+    <div>
+      <label>Year filter</label>
+      <select id="yr"><option value="">All years</option></select>
+    </div>
   </div>
-  <div id="sr_status_counts" class="muted" style="margin:8px 0"></div>
-  <table id="sr_tbl">
+  <div style="margin:8px 0">
+    <span id="count" class="badge">SRRs: 0</span>
+  </div>
+  <table id="tbl">
     <thead><tr>
-      <th data-k="createdAt">Created</th>
-      <th data-k="member">Member</th>
-      <th data-k="quarter">Quarter</th>
-      <th data-k="year">Year</th>
-      <th data-k="uniform">Uniform</th>
-      <th data-k="inspection">Inspection</th>
-      <th data-k="rab">RAB</th>
-      <th data-k="cac">CAC</th>
-      <th data-k="vred">vRED</th>
-      <th data-k="notes">Notes</th>
+      <th>Date</th><th>Year</th><th>Member</th><th>Status</th><th>Notes</th>
     </tr></thead>
     <tbody></tbody>
   </table>
 </div>
 
 <script type="module">
-  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
-  import { gate,$ } from './eads.js'; gate();
-  import { makeFSList } from './eads-fs.js';
-  onAuthStateChanged(auth,(u)=>{
-    if(!u){ location.href="/family-dashboard/main/index.html"; return; }
-    const c=document.getElementById('auth'); c.innerHTML = `<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
-    document.getElementById('signout').onclick=(e)=>{e.preventDefault();signOutUser();};
+  import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+  import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
+    const c=document.getElementById('auth');
+    c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
+    init();
   });
 
-  const comboFilter = {
-    get value(){ return ($('#sr_filterQ').value||'') + '|' + ($('#sr_filterY').value||''); },
-    set oninput(fn){ ['#sr_filterQ','#sr_filterY'].forEach(sel=>document.querySelector(sel).addEventListener('input',fn)); }
-  };
+  const $=(s)=>document.querySelector(s);
+  let ROWS=[], SEL=null;
 
-  makeFSList({
-    store:'eads_srr',
-    $thead: $('#sr_tbl thead'), $tbody: $('#sr_tbl tbody'),
-    $save: $('#sr_save'), $update: $('#sr_update'), $delete: $('#sr_delete'),
-    $selInfo: $('#sr_sel'), $filter: comboFilter,
-    defaultSort:'year',
-    filterFn:(r,v)=>{ const [q,y]=v.split('|'); return (!q||r.quarter===q) && (!y||String(r.year)===String(y)); },
-    rowHTML:r=>`<tr data-id="${r.id}">
-      <td>${r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString() : ''}</td>
-      <td>${r.member||''}</td><td>${r.quarter||''}</td><td>${r.year||''}</td><td>${r.uniform||''}</td>
-      <td>${r.inspection||''}</td><td>${r.rab||''}</td><td>${r.cac||''}</td><td>${r.vred||''}</td><td>${r.notes||''}</td>
-    </tr>`,
-    getForm:()=>({
-      member:$('#sr_member').value.trim(),
-      year:$('#sr_year').value,
-      quarter:$('#sr_quarter').value,
-      uniform:$('#sr_uniform').value,
-      inspection:$('#sr_insp').value,
-      rab:$('#sr_rab').value, cac:$('#sr_cac').value, vred:$('#sr_vred').value,
-      notes:$('#sr_notes').value.trim()
-    }),
-    setForm:r=>{ $('#sr_member').value=r.member||''; $('#sr_year').value=r.year||''; $('#sr_quarter').value=r.quarter||'Q1'; $('#sr_uniform').value=r.uniform||'Service Dress'; $('#sr_insp').value=r.inspection||'Pending'; $('#sr_rab').value=r.rab||'Go'; $('#sr_cac').value=r.cac||'Go'; $('#sr_vred').value=r.vred||'Go'; $('#sr_notes').value=r.notes||''; },
-    clearForm:()=>{ ['#sr_member','#sr_year','#sr_notes'].forEach(s=>$(s).value=''); $('#sr_quarter').value='Q1'; $('#sr_uniform').value='Service Dress'; $('#sr_insp').value='Pending'; $('#sr_rab').value='Go'; $('#sr_cac').value='Go'; $('#sr_vred').value='Go'; $('#sr_update').disabled=$('#sr_delete').disabled=true; $('#sr_sel').textContent=''; }
-  });
+  async function init(){
+    // default year/date
+    const d=new Date(), y=d.getFullYear();
+    $('#f_year').value = y;
+    $('#f_date').value = `${y}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+    // events
+    $('#save').onclick=onSave; $('#update').onclick=onUpdate; $('#remove').onclick=onDelete;
+    $('#q').oninput=render; $('#yr').oninput=render;
+
+    await load();
+  }
+
+  async function load(){
+    const snap = await getDocs(collection(db,'eads_srr'));
+    ROWS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    // build year filter options
+    const years = Array.from(new Set(ROWS.map(r=>Number(r.year)).filter(Boolean))).sort((a,b)=>b-a);
+    const sel = $('#yr'); sel.innerHTML = `<option value="">All years</option>` + years.map(y=>`<option>${y}</option>`).join('');
+    render();
+  }
+
+  function render(){
+    const q = ($('#q').value||'').toLowerCase();
+    const yr = $('#yr').value;
+    const rows = ROWS
+      .filter(r=> !yr || String(r.year)===yr)
+      .filter(r=> !q || JSON.stringify({m:r.member,s:r.status,n:r.notes}).toLowerCase().includes(q))
+      .sort((a,b)=> cmp(dateStr(a.date), dateStr(b.date)));
+
+    // counter like "SRRs: 12 (2025)"
+    $('#count').textContent = `SRRs: ${rows.length}${yr? ' ('+yr+')':''}`;
+
+    $('#tbl tbody').innerHTML = rows.map(r=>`
+      <tr data-id="${r.id}">
+        <td>${dateStr(r.date)||''}</td>
+        <td>${r.year||''}</td>
+        <td>${esc(r.member)||''}</td>
+        <td>${esc(r.status)||''}</td>
+        <td>${esc(r.notes)||''}</td>
+      </tr>
+    `).join('');
+
+    // row select
+    $('#tbl tbody').querySelectorAll('tr').forEach(tr=>{
+      tr.onclick = ()=>{
+        const id = tr.dataset.id; SEL=id;
+        const r = ROWS.find(x=>x.id===id); if(!r) return;
+        $('#f_member').value=r.member||''; $('#f_year').value=r.year||''; $('#f_date').value=dateStr(r.date)||''; $('#f_status').value=r.status||''; $('#f_notes').value=r.notes||'';
+        $('#update').disabled=false; $('#remove').disabled=false; $('#sel').textContent=`Selected ${id}`;
+      };
+    });
+  }
+
+  async function onSave(){
+    const rec = readForm(); if(!rec) return;
+    await addDoc(collection(db,'eads_srr'), { ...rec, createdAt: serverTimestamp() });
+    clearForm(); await load();
+  }
+  async function onUpdate(){
+    if(!SEL) return;
+    const rec = readForm(); if(!rec) return;
+    await updateDoc(doc(db,'eads_srr',SEL), rec);
+    clearForm(); await load();
+  }
+  async function onDelete(){
+    if(!SEL) return;
+    if(!confirm('Delete this SRR?')) return;
+    await deleteDoc(doc(db,'eads_srr',SEL));
+    clearForm(); await load();
+  }
+
+  function readForm(){
+    const member = $('#f_member').value.trim();
+    const year   = Number($('#f_year').value||0);
+    const date   = $('#f_date').value;
+    if(!member){ alert('Member required'); return null; }
+    if(!year){ alert('Year required'); return null; }
+    if(!date){ alert('Date required'); return null; }
+    return {
+      member, year,
+      date, // store as ISO string; Firestore will keep string
+      status: $('#f_status').value.trim(),
+      notes: $('#f_notes').value.trim()
+    };
+  }
+  function clearForm(){
+    ['#f_member','#f_status','#f_notes'].forEach(s=>$(s).value='');
+    $('#update').disabled=true; $('#remove').disabled=true; $('#sel').textContent=''; SEL=null;
+  }
+
+  function dateStr(v){
+    if(!v) return '';
+    if(typeof v==='string') return v;
+    if(v.seconds) return new Date(v.seconds*1000).toISOString().slice(0,10);
+    return '';
+  }
+  function cmp(a,b){ if(a<b) return -1; if(a>b) return 1; return 0; }
+  function esc(s){ return String(s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 </script>
-</body>
-</html>
+</body></html>
