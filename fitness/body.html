@@ -1,0 +1,242 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Fitness · Body Composition</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Inter;background:#0b1220;color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:1000px){.row{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--muted)}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+.muted{color:var(--muted);font-size:12px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted);cursor:pointer}
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.kpi{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#101832}
+</style>
+</head>
+<body>
+<header>
+  <div><a class="btn" href="/family-dashboard/fitness/index.html">&larr; Fitness</a></div>
+  <div id="auth"></div>
+</header>
+
+<h1>Body Composition</h1>
+
+<!-- Entry form -->
+<div class="card">
+  <div class="row">
+    <div><label>Date</label><input id="b_date" type="date"></div>
+    <div><label>Weight (lb)</label><input id="b_weight" type="number" step="0.1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div><label>Goal Weight (lb)</label><input id="b_goal" type="number" step="0.1"></div>
+    <div><label>BMI</label><input id="b_bmi" type="number" step="0.1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div><label>Muscle Mass (lb)</label><input id="b_muscleMass" type="number" step="0.1"></div>
+    <div><label>Muscle %</label><input id="b_musclePct" type="number" step="0.1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div><label>Bone Mass (lb)</label><input id="b_bone" type="number" step="0.1"></div>
+    <div><label>BMR (kcal)</label><input id="b_bmr" type="number" step="1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div><label>Protein %</label><input id="b_proteinPct" type="number" step="0.1"></div>
+    <div><label>Fat Weight (lb)</label><input id="b_fatW" type="number" step="0.1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div><label>Lean Weight (lb)</label><input id="b_leanW" type="number" step="0.1"></div>
+    <div><label>Fat %</label><input id="b_fatPct" type="number" step="0.1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div><label>Visceral Fat Index</label><input id="b_visceral" type="number" step="0.1"></div>
+    <div><label>Subcutaneous Fat</label><input id="b_subcut" type="number" step="0.1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div><label>Water Weight (lb)</label><input id="b_waterW" type="number" step="0.1"></div>
+    <div><label>Water %</label><input id="b_waterPct" type="number" step="0.1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div>
+      <label>Obesity Level</label>
+      <select id="b_obesity">
+        <option>Under weight</option><option>Normal</option><option>Over weight</option>
+        <option>Obese I</option><option>Obese II</option><option>Obese III</option>
+      </select>
+    </div>
+    <div><label>Physical Age</label><input id="b_physAge" type="number" step="1"></div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <div><label>Notes</label><input id="b_notes" placeholder="optional"></div>
+    <div style="align-self:end">
+      <button class="btn" id="save"   type="button">Save</button>
+      <button class="btn" id="update" type="button" disabled>Update</button>
+      <button class="btn" id="remove" type="button" disabled>Delete</button>
+      <span id="sel" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+</div>
+
+<!-- List + search -->
+<div class="card">
+  <div class="row">
+    <div><label>Search</label><input id="search" placeholder="Date, notes…"></div>
+    <div><label>Obesity Filter</label>
+      <select id="filter">
+        <option value="">All</option>
+        <option>Under weight</option><option>Normal</option><option>Over weight</option>
+        <option>Obese I</option><option>Obese II</option><option>Obese III</option>
+      </select>
+    </div>
+  </div>
+  <div id="count" class="muted" style="margin:8px 0"></div>
+  <table id="tbl">
+    <thead><tr>
+      <th data-k="date">Date</th>
+      <th data-k="weight">Weight</th>
+      <th data-k="bmi">BMI</th>
+      <th data-k="fatPct">Fat %</th>
+      <th data-k="muscleMass">Muscle lb</th>
+      <th data-k="waterPct">Water %</th>
+      <th data-k="bmr">BMR</th>
+      <th data-k="visceral">Visc</th>
+      <th data-k="physAge">Age</th>
+      <th data-k="obesity">Obesity</th>
+      <th data-k="notes">Notes</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
+  import { makeFSList, $ } from "./fitness.js";
+
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{ 
+    if(!u){location.href=LOGIN;return;}
+    const c=document.getElementById('auth');
+    c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
+    // set default date = today
+    const d=new Date(); const p=n=>String(n).padStart(2,'0');
+    $('#b_date').value=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  });
+
+  const ctx = makeFSList({
+    store:'fitness_body',
+    $thead: $('#tbl thead'), $tbody: $('#tbl tbody'),
+    $save: $('#save'), $update: $('#update'), $delete: $('#remove'),
+    $selInfo: $('#sel'), $search: $('#search'), $filter: $('#filter'),
+    defaultSort:'date',
+    filterFn:(r,v)=> r.obesity===v,
+    rowHTML:r=>`<tr data-id="${r.id}">
+      <td>${r.date||''}</td>
+      <td>${numfmt(r.weight)}</td>
+      <td>${numfmt(r.bmi)}</td>
+      <td>${numfmt(r.fatPct)}</td>
+      <td>${numfmt(r.muscleMass)}</td>
+      <td>${numfmt(r.waterPct)}</td>
+      <td>${intfmt(r.bmr)}</td>
+      <td>${numfmt(r.visceral)}</td>
+      <td>${intfmt(r.physAge)}</td>
+      <td>${r.obesity||''}</td>
+      <td>${r.notes||''}</td>
+    </tr>`,
+    getForm:()=>({
+      date: $('#b_date').value,
+      weight: num($('#b_weight').value),
+      goal: num($('#b_goal').value),
+      bmi: num($('#b_bmi').value),
+      muscleMass: num($('#b_muscleMass').value),
+      musclePct: num($('#b_musclePct').value),
+      bone: num($('#b_bone').value),
+      bmr: num($('#b_bmr').value),
+      proteinPct: num($('#b_proteinPct').value),
+      fatW: num($('#b_fatW').value),
+      leanW: num($('#b_leanW').value),
+      fatPct: num($('#b_fatPct').value),
+      visceral: num($('#b_visceral').value),
+      subcut: num($('#b_subcut').value),
+      waterW: num($('#b_waterW').value),
+      waterPct: num($('#b_waterPct').value),
+      obesity: $('#b_obesity').value,
+      physAge: num($('#b_physAge').value),
+      notes: $('#b_notes').value.trim()
+    }),
+    setForm:r=>{
+      $('#b_date').value=r.date||'';
+      $('#b_weight').value=r.weight??'';
+      $('#b_goal').value=r.goal??'';
+      $('#b_bmi').value=r.bmi??'';
+      $('#b_muscleMass').value=r.muscleMass??'';
+      $('#b_musclePct').value=r.musclePct??'';
+      $('#b_bone').value=r.bone??'';
+      $('#b_bmr').value=r.bmr??'';
+      $('#b_proteinPct').value=r.proteinPct??'';
+      $('#b_fatW').value=r.fatW??'';
+      $('#b_leanW').value=r.leanW??'';
+      $('#b_fatPct').value=r.fatPct??'';
+      $('#b_visceral').value=r.visceral??'';
+      $('#b_subcut').value=r.subcut??'';
+      $('#b_waterW').value=r.waterW??'';
+      $('#b_waterPct').value=r.waterPct??'';
+      $('#b_obesity').value=r.obesity||'Over weight';
+      $('#b_physAge').value=r.physAge??'';
+      $('#b_notes').value=r.notes||'';
+      renderKPIs(r);
+    },
+    clearForm:()=>{
+      ['#b_weight','#b_goal','#b_bmi','#b_muscleMass','#b_musclePct','#b_bone','#b_bmr',
+       '#b_proteinPct','#b_fatW','#b_leanW','#b_fatPct','#b_visceral','#b_subcut',
+       '#b_waterW','#b_waterPct','#b_physAge','#b_notes'].forEach(s=>$(s).value='');
+      $('#b_obesity').value='Over weight';
+      renderKPIs(null);
+    },
+    afterRender:({rows})=>{
+      const latest = rows[rows.length-1]||null;
+      renderKPIs(latest);
+      const c=document.getElementById('count'); if(c) c.textContent=`${rows.length} result(s)`;
+    }
+  });
+
+  function renderKPIs(r){
+    const k=document.getElementById('kpis');
+    if(!r){ k.innerHTML=''; return; }
+    const remain = (r.goal!=null && r.weight!=null)? (r.weight - r.goal) : null;
+    k.innerHTML = [
+      `<div class="kpi"><div class="muted">Weight</div><div>${numfmt(r.weight)} lb</div></div>`,
+      `<div class="kpi"><div class="muted">Goal</div><div>${numfmt(r.goal)} lb</div></div>`,
+      `<div class="kpi"><div class="muted">Remaining</div><div>${remain!=null? numfmt(remain): ''} lb</div></div>`,
+      `<div class="kpi"><div class="muted">BMI</div><div>${numfmt(r.bmi)}</div></div>`,
+      `<div class="kpi"><div class="muted">Fat %</div><div>${numfmt(r.fatPct)}</div></div>`,
+      `<div class="kpi"><div class="muted">Muscle lb</div><div>${numfmt(r.muscleMass)}</div></div>`,
+      `<div class="kpi"><div class="muted">Water %</div><div>${numfmt(r.waterPct)}</div></div>`
+    ].join('');
+  }
+
+  function num(v){return v===''?null:Number(v)}
+  function numfmt(v){return v==null?'':Number(v).toFixed(1)}
+  function intfmt(v){return v==null?'':Number(v).toFixed(0)}
+</script>
+</body>
+</html>
