@@ -1,0 +1,149 @@
+<!-- /family-dashboard/finances/ledger.html -->
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Finances · Ledger</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:var(--bg);color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px}@media(max-width:900px){.row{grid-template-columns:1fr 1fr;row-gap:10px}}
+label{font-size:12px;color:var(--muted)}
+input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.kpi{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#101832;min-width:150px}
+.kpi .muted{color:var(--muted);font-size:12px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted)}
+.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
+</style></head><body>
+<header>
+  <div><a class="btn" href="/family-dashboard/finances/index.html">&larr; Finances</a></div>
+  <div id="auth"></div>
+</header>
+
+<h1>Ledger</h1>
+
+<div class="card">
+  <div class="row">
+    <div><label>Start</label><input id="d_start" type="date"></div>
+    <div><label>End</label><input id="d_end" type="date"></div>
+    <div style="align-self:end"><button class="btn" id="btn_range" type="button">Refresh</button></div>
+    <div style="align-self:end"><span id="count" class="badge">0 items</span></div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+</div>
+
+<div class="card">
+  <table id="tbl">
+    <thead><tr>
+      <th>Date</th><th>Type</th><th>Source</th><th>Category</th><th>Amount</th><th>Notes</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { auth, onAuthStateChanged, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+  import {
+    collection, getDocs, query, where
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{
+    if(!u){ location.href=LOGIN; return; }
+    const c=document.getElementById('auth');
+    c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
+    init();
+  });
+
+  const $ = (s)=>document.querySelector(s);
+  const iso = (d)=> d.toISOString().slice(0,10);
+  function setDefaultRange(){
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end   = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    $('#d_start').value = iso(start);
+    $('#d_end').value   = iso(end);
+  }
+
+  async function init(){
+    setDefaultRange();
+    $('#btn_range').onclick = refresh;
+    await refresh();
+  }
+
+  async function refresh(){
+    const start = $('#d_start').value;
+    const end   = $('#d_end').value;
+    if(!start || !end){ return; }
+
+    // collections:
+    // fin_income   {date, source, category, amount, notes}
+    // fin_expenses {date, vendor/source, category, amount, notes}
+    // fin_bills    {dueDate, name, category, amount, notes, paid}
+    const within = (field)=> query(
+      collection(db, COL),
+      where(field, '>=', start),
+      where(field, '<=', end)
+    );
+
+    // income
+    let COL='fin_income';
+    const incSnap = await getDocs(within('date'));
+    const income = incSnap.docs.map(d=>({ id:d.id, type:'Income', date:val(d,'date'), source:val(d,'source')||val(d,'name')||'—', cat:val(d,'category')||'Income', amt:num(val(d,'amount')), notes:val(d,'notes')||'' }));
+
+    // expenses
+    COL='fin_expenses';
+    const expSnap = await getDocs(within('date'));
+    const expenses = expSnap.docs.map(d=>({ id:d.id, type:'Expense', date:val(d,'date'), source:val(d,'source')||val(d,'vendor')||'—', cat:val(d,'category')||'Expense', amt:-Math.abs(num(val(d,'amount'))), notes:val(d,'notes')||'' }));
+
+    // bills (treated as expenses by dueDate)
+    COL='fin_bills';
+    const billSnap = await getDocs(within('dueDate'));
+    const bills = billSnap.docs.map(d=>{
+      const paid = !!val(d,'paid');
+      return { id:d.id, type: paid?'Bill (paid)':'Bill', date:val(d,'dueDate'), source:val(d,'name')||'Bill', cat:val(d,'category')||'Bills', amt:-Math.abs(num(val(d,'amount'))), notes:(val(d,'notes')||'')+(paid?' · paid':'') };
+    });
+
+    const rows = [...income, ...expenses, ...bills].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    $('#count').textContent = `${rows.length} items`;
+
+    // KPIs
+    const sum = rows.reduce((acc,r)=>{ if(r.amt>=0) acc.in+=r.amt; else acc.out+=-r.amt; return acc; }, {in:0,out:0});
+    $('#kpis').innerHTML = [
+      `<div class="kpi"><div class="muted">Income</div><div>$${fmt(sum.in)}</div></div>`,
+      `<div class="kpi"><div class="muted">Expenses</div><div>$${fmt(sum.out)}</div></div>`,
+      `<div class="kpi"><div class="muted">Net</div><div>$${fmt(sum.in - sum.out)}</div></div>`
+    ].join('');
+
+    // table
+    const tb = $('#tbl tbody');
+    tb.innerHTML = rows.map(r=>`<tr>
+      <td>${r.date||''}</td>
+      <td>${r.type}</td>
+      <td>${esc(r.source)}</td>
+      <td>${esc(r.cat)}</td>
+      <td>${money(r.amt)}</td>
+      <td>${esc(r.notes)}</td>
+    </tr>`).join('');
+  }
+
+  function val(doc, k){ const v = doc.data()?.[k]; return tsToISO(v); }
+  function tsToISO(v){
+    if(!v) return v;
+    if(typeof v === 'string') return v;
+    if(v.seconds) return new Date(v.seconds*1000).toISOString().slice(0,10);
+    return v;
+  }
+  function num(v){ return v==null?0:Number(v); }
+  function fmt(n){ return n.toLocaleString(undefined,{maximumFractionDigits:2}); }
+  function money(n){ const s = n>=0? n : -n; return (n<0?'-':'') + '$' + fmt(s); }
+  function esc(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+</script>
+</body></html>
