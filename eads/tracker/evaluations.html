@@ -1,5 +1,6 @@
 <!doctype html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EADS · Evaluations</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
@@ -10,11 +11,14 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:1000px){.row{grid-template-columns:1fr}}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:1000px){.row{grid-template-columns:1fr}}
 label{font-size:12px;color:var(--muted)}
 input,textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
-table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
-th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted)}
+.muted{color:var(--muted);font-size:12px}
 .step{display:flex;justify-content:space-between;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:#0f1330;margin-bottom:6px}
 .step.current{outline:2px solid #2b6cb0}
 .badge{padding:2px 8px;border:1px solid #2b325a;border-radius:999px;background:#0e1430;font-size:12px}
@@ -32,7 +36,6 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
 
 <div id="err" class="alert"></div>
 
-<!-- Create / edit an evaluation record -->
 <div class="card">
   <div class="row">
     <div><label>Member</label><input id="f_member" placeholder="Last, First MI"></div>
@@ -43,7 +46,7 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
     <div><label>Period End</label><input id="f_end" type="date"></div>
   </div>
   <div style="margin-top:10px">
-    <button class="btn" id="save"   type="button">Save</button>
+    <button class="btn" id="save" type="button">Save</button>
     <button class="btn" id="update" type="button" disabled>Update</button>
     <button class="btn" id="remove" type="button" disabled>Delete</button>
     <span id="sel" class="muted"></span>
@@ -51,7 +54,6 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
   <div class="muted" style="margin-top:8px">New records start at step 1: Flight Draft.</div>
 </div>
 
-<!-- List -->
 <div class="card">
   <div class="row">
     <div><label>Search</label><input id="search" placeholder="member, note"></div>
@@ -77,14 +79,13 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
   </table>
 </div>
 
-<!-- Step controller -->
 <div class="card" id="detail" style="display:none">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <h3 style="margin:0" id="d_title">Steps</h3>
     <div class="kit">
       <button class="btn" id="btn_complete" type="button">Complete current</button>
-      <button class="btn" id="btn_reopen"   type="button">Reopen previous</button>
-      <button class="btn" id="btn_close"    type="button">Close now</button>
+      <button class="btn" id="btn_reopen" type="button">Reopen previous</button>
+      <button class="btn" id="btn_close" type="button">Close now</button>
     </div>
   </div>
   <div id="steps" style="margin-top:10px"></div>
@@ -104,178 +105,196 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
 
   const LOGIN="/family-dashboard/main/index.html";
   onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
-    const c=document.getElementById('auth');
-    c.innerHTML=\`<span class="muted">\${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>\`;
-    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
+    const c=document.getElementById("auth");
+    c.innerHTML='<span class="muted">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
+    document.getElementById("signout").onclick=(e)=>{e.preventDefault();signOutUser();};
   });
 
   const $=(s)=>document.querySelector(s);
   let ROWS=[], SEL=null;
 
-  function showErr(msg){ const e=$('#err'); e.textContent=msg; e.style.display=msg?'block':'none'; }
+  function showErr(msg){ const e=$("#err"); e.textContent=msg||""; e.style.display=msg?"block":"none"; }
 
   async function load(){
     try{
-      const snap = await getDocs(query(collection(db,'eads_evals'), orderBy('member')));
+      const snap = await getDocs(query(collection(db,"eads_evals"), orderBy("member")));
       ROWS = snap.docs.map(d=>({id:d.id, ...d.data()}));
       render();
     }catch(e){ console.error(e); showErr(e.message||String(e)); }
   }
+
   function render(){
-    const q = ($('#search').value||'').toLowerCase();
-    const f = $('#filter').value;
+    const q = ($("#search").value||"").toLowerCase();
+    const f = $("#filter").value;
     const rows = ROWS
-      .filter(r=>!q || \`\${r.member} \${r.note||''}\`.toLowerCase().includes(q))
-      .filter(r=> f==='' || (f==='open' ? !r.closed : !!r.closed));
-    $('#tbl tbody').innerHTML = rows.map(r=>{
-      const cur = STEP_NAMES[r.stepIndex||0] || '—';
+      .filter(r=> !q || (String(r.member||"").toLowerCase()+" "+String(r.note||"").toLowerCase()).includes(q))
+      .filter(r=> f==="" || (f==="open" ? !r.closed : !!r.closed));
+
+    document.getElementById("tbl").querySelector("tbody").innerHTML = rows.map(r=>{
+      const cur = STEP_NAMES[r.stepIndex||0] || "—";
       return `<tr data-id="${r.id}">
-        <td>${r.member||''}</td>
-        <td>${r.start||''} → ${r.end||''}</td>
-        <td>${cur}</td>
-        <td>${r.closed?'Yes':'No'}</td>
-        <td>${r.note||''}</td>
+        <td>${esc(r.member)}</td>
+        <td>${esc(r.start||"")} → ${esc(r.end||"")}</td>
+        <td>${esc(cur)}</td>
+        <td>${r.closed?"Yes":"No"}</td>
+        <td>${esc(r.note||"")}</td>
         <td><button class="btn" type="button" data-open="${r.id}">Open</button></td>
       </tr>`;
-    }).join('');
-    $('#count').textContent = \`\${rows.length} result(s)\`;
-    $('#tbl tbody').querySelectorAll('tr').forEach(tr=>{
-      tr.onclick = (e)=>{ if(e.target.dataset.open) return; select(tr.dataset.id); };
+    }).join("");
+
+    document.getElementById("count").textContent = rows.length+" result(s)";
+
+    document.querySelectorAll("#tbl tbody tr").forEach(tr=>{
+      tr.onclick=(e)=>{ if(e.target.dataset.open) return; select(tr.dataset.id); };
     });
-    $('#tbl tbody').querySelectorAll('button[data-open]').forEach(b=>{
-      b.onclick = (e)=>{ e.stopPropagation(); openDetail(b.dataset.open); };
+    document.querySelectorAll('#tbl tbody button[data-open]').forEach(b=>{
+      b.onclick=(e)=>{ e.stopPropagation(); openDetail(b.dataset.open); };
     });
   }
+
   function select(id){
-    SEL = id;
+    SEL=id;
     const r = ROWS.find(x=>x.id===id); if(!r) return;
-    $('#f_member').value=r.member||''; $('#f_note').value=r.note||'';
-    $('#f_start').value=r.start||'';   $('#f_end').value=r.end||'';
-    $('#update').disabled=false; $('#remove').disabled=false;
-    $('#sel').textContent=\`Selected \${id}\`;
+    $("#f_member").value=r.member||""; $("#f_note").value=r.note||"";
+    $("#f_start").value=r.start||"";   $("#f_end").value=r.end||"";
+    $("#update").disabled=false; $("#remove").disabled=false;
+    $("#sel").textContent="Selected "+id;
   }
+
   function clearForm(){
-    ['#f_member','#f_note','#f_start','#f_end'].forEach(s=>$(s).value='');
-    $('#update').disabled=true; $('#remove').disabled=true; $('#sel').textContent=''; SEL=null;
+    ["#f_member","#f_note","#f_start","#f_end"].forEach(s=>$(s).value="");
+    $("#update").disabled=true; $("#remove").disabled=true; $("#sel").textContent="";
+    SEL=null;
   }
 
   async function onSave(){
-  showErr('');
-  const member = $('#f_member').value.trim();
-  const start  = $('#f_start').value;
-  const end    = $('#f_end').value;
-  if(!member){ showErr('Member is required.'); return; }
-  if(!start || !end){ showErr('Start and End dates are required.'); return; }
+    showErr("");
+    const member = $("#f_member").value.trim();
+    const start  = $("#f_start").value;
+    const end    = $("#f_end").value;
+    if(!member){ showErr("Member is required."); return; }
+    if(!start || !end){ showErr("Start and End dates are required."); return; }
 
-  try{
-    // guard: db/auth present
-    if(!auth?.currentUser) throw new Error('Not signed in');
-    if(!db) throw new Error('Firebase not initialized');
+    try{
+      if(!auth || !auth.currentUser) throw new Error("Not signed in");
+      if(!db) throw new Error("Firebase not initialized");
 
-    $('#save').disabled = true;
-    const base = {
-      member,
-      note: $('#f_note').value.trim(),
-      start,
-      end,
-      stepIndex: 0,
-      steps: [
-        "Flight Draft","SEO Review","Flt Corrections","SEL/CCD Review","Flt Corrections",
-        "CC Review","Flt Corrections","Rater Sign","CC Sign","Shirt QC","Ratee Sign","MPF"
-      ].map(n=>({name:n, doneAt:null})),
-      closed: false,
-      createdAt: serverTimestamp()
-    };
-    await addDoc(collection(db,'eads_evals'), base);
-    clearForm();
-    await load();
-  }catch(e){
-    console.error(e);
-    showErr(e.code ? `${e.code}: ${e.message}` : (e.message||String(e)));
-  }finally{
-    $('#save').disabled = false;
+      document.getElementById("save").disabled=true;
+      const base = {
+        member,
+        note: $("#f_note").value.trim(),
+        start,
+        end,
+        stepIndex: 0,
+        steps: STEP_NAMES.map(n=>({ name:n, doneAt:null })),
+        closed: false,
+        createdAt: serverTimestamp()
+      };
+      await addDoc(collection(db,"eads_evals"), base);
+      clearForm(); await load();
+    }catch(e){
+      console.error(e); showErr(e.code ? (e.code+": "+e.message) : (e.message||String(e)));
+    }finally{
+      document.getElementById("save").disabled=false;
+    }
   }
-}
 
   async function onUpdate(){
     if(!SEL) return;
-    showErr('');
+    showErr("");
     try{
-      $('#update').disabled=true;
+      document.getElementById("update").disabled=true;
       const patch = {
-        member: $('#f_member').value.trim(),
-        note: $('#f_note').value.trim(),
-        start: $('#f_start').value,
-        end: $('#f_end').value
+        member: $("#f_member").value.trim(),
+        note: $("#f_note").value.trim(),
+        start: $("#f_start").value,
+        end: $("#f_end").value
       };
-      await updateDoc(doc(db,'eads_evals',SEL), patch);
+      await updateDoc(doc(db,"eads_evals",SEL), patch);
       clearForm(); await load();
     }catch(e){ console.error(e); showErr(e.message||String(e)); }
-    finally{ $('#update').disabled=false; }
-  }
-  async function onDelete(){
-    if(!SEL) return;
-    showErr('');
-    if(!confirm('Delete this evaluation?')) return;
-    try{
-      $('#remove').disabled=true;
-      await deleteDoc(doc(db,'eads_evals',SEL));
-      clearForm(); $('#detail').style.display='none'; await load();
-    }catch(e){ console.error(e); showErr(e.message||String(e)); }
-    finally{ $('#remove').disabled=false; }
+    finally{ document.getElementById("update").disabled=false; }
   }
 
-  // detail
-  function dateStr(ts){ if(!ts) return ''; const d=ts.seconds?new Date(ts.seconds*1000):new Date(ts); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
-  async function openDetail(id){
-    SEL = id; $('#update').disabled=false; $('#remove').disabled=false; $('#sel').textContent=`Selected ${id}`;
-    const r = ROWS.find(x=>x.id===id) || (await getDoc(doc(db,'eads_evals',id))).data();
-    r.id=id;
-    $('#d_title').textContent = `Steps · ${r.member||''} · ${r.start||''} → ${r.end||''}`;
-    renderSteps(r);
-    $('#detail').style.display='block';
+  async function onDelete(){
+    if(!SEL) return;
+    showErr("");
+    if(!confirm("Delete this evaluation?")) return;
+    try{
+      document.getElementById("remove").disabled=true;
+      await deleteDoc(doc(db,"eads_evals",SEL));
+      clearForm(); document.getElementById("detail").style.display="none"; await load();
+    }catch(e){ console.error(e); showErr(e.message||String(e)); }
+    finally{ document.getElementById("remove").disabled=false; }
   }
+
+  function dateStr(ts){
+    if(!ts) return "";
+    const d = ts.seconds ? new Date(ts.seconds*1000) : new Date(ts);
+    const p = (n)=>String(n).padStart(2,"0");
+    return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
+  }
+
+  async function openDetail(id){
+    SEL=id; document.getElementById("update").disabled=false; document.getElementById("remove").disabled=false; document.getElementById("sel").textContent="Selected "+id;
+    const r = ROWS.find(x=>x.id===id) || (await getDoc(doc(db,"eads_evals",id))).data();
+    r.id=id;
+    document.getElementById("d_title").textContent = "Steps · "+(r.member||"")+" · "+(r.start||"")+" → "+(r.end||"");
+    renderSteps(r);
+    document.getElementById("detail").style.display="block";
+  }
+
   function renderSteps(rec){
     const cur = rec.stepIndex||0, lastIdx = STEP_NAMES.length-1;
-    $('#steps').innerHTML = STEP_NAMES.map((name,i)=>{
-      const done = rec.steps?.[i]?.doneAt;
+    document.getElementById("steps").innerHTML = STEP_NAMES.map((name,i)=>{
+      const done = rec.steps && rec.steps[i] ? rec.steps[i].doneAt : null;
       const isCur = i===cur && !rec.closed;
-      const when = done? dateStr(done): '';
-      const tag = done? `<span class="badge">Done ${when}</span>` : (isCur? `<span class="badge">Current</span>`:'');
-      return `<div class="step ${isCur?'current':''}">
-        <div><div>${i+1}. ${name}</div><div class="muted">${tag}</div></div>
-        <div class="kit">
-          <button class="btn" type="button" data-set="${i}">Set current</button>
-          ${done? `<button class="btn" type="button" data-clear="${i}">Clear date</button>`:''}
-        </div>
-      </div>`;
-    }).join('');
-    $('#btn_complete').disabled = rec.closed || cur>=lastIdx;
-    $('#btn_reopen').disabled   = cur<=0;
-    $('#btn_close').disabled    = rec.closed;
-    $('#steps').querySelectorAll('button[data-set]').forEach(b=> b.onclick = ()=> setCurrent(rec.id, Number(b.dataset.set)));
-    $('#steps').querySelectorAll('button[data-clear]').forEach(b=> b.onclick = ()=> clearDate(rec.id, Number(b.dataset.clear)));
-    $('#btn_complete').onclick = ()=> completeCurrent(rec.id);
-    $('#btn_reopen').onclick   = ()=> reopenPrevious(rec.id);
-    $('#btn_close').onclick    = ()=> closeNow(rec.id);
+      const when = done ? dateStr(done) : "";
+      const tag = done ? '<span class="badge">Done '+when+'</span>' : (isCur ? '<span class="badge">Current</span>' : '');
+      return '<div class="step '+(isCur?'current':'')+'">'+
+        '<div><div>'+(i+1)+'. '+name+'</div><div class="muted">'+tag+'</div></div>'+
+        '<div class="kit">'+
+          '<button class="btn" type="button" data-set="'+i+'">Set current</button>'+
+          (done ? '<button class="btn" type="button" data-clear="'+i+'">Clear date</button>' : '')+
+        '</div>'+
+      '</div>';
+    }).join("");
+
+    document.getElementById("btn_complete").disabled = rec.closed || cur>=lastIdx;
+    document.getElementById("btn_reopen").disabled   = cur<=0;
+    document.getElementById("btn_close").disabled    = rec.closed;
+
+    document.querySelectorAll('#steps button[data-set]').forEach(b=>{
+      b.onclick = function(){ setCurrent(rec.id, Number(b.dataset.set)); };
+    });
+    document.querySelectorAll('#steps button[data-clear]').forEach(b=>{
+      b.onclick = function(){ clearDate(rec.id, Number(b.dataset.clear)); };
+    });
+
+    document.getElementById("btn_complete").onclick = function(){ completeCurrent(rec.id); };
+    document.getElementById("btn_reopen").onclick   = function(){ reopenPrevious(rec.id); };
+    document.getElementById("btn_close").onclick    = function(){ closeNow(rec.id); };
   }
+
   async function setCurrent(id, idx){
     try{
       const r = ROWS.find(x=>x.id===id);
       const steps = (r.steps||STEP_NAMES.map(n=>({name:n,doneAt:null}))).map((s,i)=> i>=idx ? ({...s, doneAt:null}) : s);
-      await updateDoc(doc(db,'eads_evals',id), { stepIndex: idx, steps, closed:false });
+      await updateDoc(doc(db,"eads_evals",id), { stepIndex: idx, steps, closed:false });
       await load(); openDetail(id);
     }catch(e){ console.error(e); showErr(e.message||String(e)); }
   }
+
   async function clearDate(id, idx){
     try{
       const r = ROWS.find(x=>x.id===id);
       const steps = (r.steps||[]).map((s,i)=> i===idx ? ({...s, doneAt:null}) : s);
       const stepIndex = Math.min(r.stepIndex||0, idx);
-      await updateDoc(doc(db,'eads_evals',id), { steps, stepIndex, closed:false });
+      await updateDoc(doc(db,"eads_evals",id), { steps, stepIndex, closed:false });
       await load(); openDetail(id);
     }catch(e){ console.error(e); showErr(e.message||String(e)); }
   }
+
   async function completeCurrent(id){
     try{
       const r = ROWS.find(x=>x.id===id);
@@ -284,33 +303,41 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
       steps[idx] = { name: STEP_NAMES[idx], doneAt: serverTimestamp() };
       const nextIdx = Math.min(idx+1, lastIdx);
       const closed = (idx===lastIdx);
-      await updateDoc(doc(db,'eads_evals',id), { steps, stepIndex: nextIdx, closed });
+      await updateDoc(doc(db,"eads_evals",id), { steps, stepIndex: nextIdx, closed });
       await load(); openDetail(id);
     }catch(e){ console.error(e); showErr(e.message||String(e)); }
   }
+
   async function reopenPrevious(id){
     try{
       const r = ROWS.find(x=>x.id===id);
       const idx = Math.max((r.stepIndex||0)-1, 0);
       const steps = (r.steps||[]).map((s,i)=> i>=idx ? ({...s, doneAt:null}) : s);
-      await updateDoc(doc(db,'eads_evals',id), { steps, stepIndex: idx, closed:false });
-      await load(); openDetail(id);
-    }catch(e){ console.error(e); showErr(e.message||String(e)); }
-  }
-  async function closeNow(id){
-    try{
-      const r = ROWS.find(x=>x.id===id);
-      const steps = (r.steps||[]).map((s,i)=> i<STEP_NAMES.length-1 ? s : ({...s, doneAt: serverTimestamp()}));
-      await updateDoc(doc(db,'eads_evals',id), { steps, stepIndex: STEP_NAMES.length-1, closed:true });
+      await updateDoc(doc(db,"eads_evals",id), { steps, stepIndex: idx, closed:false });
       await load(); openDetail(id);
     }catch(e){ console.error(e); showErr(e.message||String(e)); }
   }
 
-  document.getElementById('save').onclick   = ()=>onSave();
-  document.getElementById('update').onclick = ()=>onUpdate();
-  document.getElementById('remove').onclick = ()=>onDelete();
-  document.getElementById('search').oninput = render;
-  document.getElementById('filter').oninput = render;
+  async function closeNow(id){
+    try{
+      const r = ROWS.find(x=>x.id===id);
+      const steps = (r.steps||[]).map((s,i)=> i<STEP_NAMES.length-1 ? s : ({...s, doneAt: serverTimestamp()}));
+      await updateDoc(doc(db,"eads_evals",id), { steps, stepIndex: STEP_NAMES.length-1, closed:true });
+      await load(); openDetail(id);
+    }catch(e){ console.error(e); showErr(e.message||String(e)); }
+  }
+
+  document.getElementById("save").onclick   = function(){ onSave(); };
+  document.getElementById("update").onclick = function(){ onUpdate(); };
+  document.getElementById("remove").onclick = function(){ onDelete(); };
+  document.getElementById("search").oninput = function(){ render(); };
+  document.getElementById("filter").oninput = function(){ render(); };
+
+  function esc(s){
+    return String(s||"").replace(/[&<>"']/g, function(m){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m];
+    });
+  }
 
   load();
 </script>
