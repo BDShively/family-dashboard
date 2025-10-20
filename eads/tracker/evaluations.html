@@ -3,9 +3,10 @@
 <title>EADS · Evaluations</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
-:root{--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:#0b1220;color:var(--fg);padding:18px}
-a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--hi:#2b6cb0}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:var(--bg);color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
@@ -13,12 +14,17 @@ a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-b
 label{font-size:12px;color:var(--muted)}
 input,textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
 table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
-th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
-.step{display:flex;justify-content:space-between;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:#0f1330;margin-bottom:6px}
-.step.current{outline:2px solid #2b6cb0}
+th{color:var(--muted)}
+.muted{color:var(--muted);font-size:12px}
+.alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
 .badge{padding:2px 8px;border:1px solid #2b325a;border-radius:999px;background:#0e1430;font-size:12px}
 .kit{display:flex;gap:6px;flex-wrap:wrap}
-.alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
+.step{display:grid;grid-template-columns:1fr auto auto 200px;gap:8px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:#0f1330;margin-bottom:6px}
+.step.current{outline:2px solid var(--hi)}
+.bar{position:relative;height:10px;border:1px solid var(--line);border-radius:999px;background:#0e1430;overflow:hidden}
+.fill{position:absolute;left:0;top:0;height:100%}
+.tag{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
+.gridHead{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:center}
 </style>
 </head>
 <body>
@@ -30,6 +36,7 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
 <h1>Evaluations</h1>
 <div id="err" class="alert"></div>
 
+<!-- Create / edit header -->
 <div class="card">
   <div class="row">
     <div><label>Member</label><input id="f_member" placeholder="Last, First MI"></div>
@@ -48,33 +55,61 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
   <div class="muted" style="margin-top:8px">New records start at step 1: Flight Draft.</div>
 </div>
 
+<!-- Filters, sorting, list -->
 <div class="card">
-  <div class="row">
-    <div><label>Search</label><input id="search" placeholder="member, note"></div>
-    <div><label>Filter by Open/Closed</label>
+  <div class="gridHead">
+    <div>
+      <label>Search</label>
+      <input id="search" placeholder="member, note">
+    </div>
+    <div>
+      <label>Open/Closed</label>
       <select id="filter">
         <option value="">All</option><option value="open">Open</option><option value="closed">Closed</option>
       </select>
     </div>
+    <div>
+      <label>Sort</label>
+      <select id="sort">
+        <option value="member">Member A→Z</option>
+        <option value="progress_desc">Progress High→Low</option>
+        <option value="suspense_asc">Suspense Soonest</option>
+        <option value="status">Status A→Z</option>
+        <option value="step">Current Step A→Z</option>
+      </select>
+    </div>
+    <div>
+      <label>Month</label>
+      <input id="month" type="month">
+    </div>
+    <div><span id="count" class="badge">0</span></div>
+    <div style="text-align:right"><span class="muted">Progress = step / 11</span></div>
   </div>
-  <div id="count" class="muted" style="margin:8px 0"></div>
-  <table id="tbl">
+
+  <table id="tbl" style="margin-top:10px">
     <thead><tr>
-      <th>Member</th><th>Period</th><th>Current Step</th><th>Closed</th><th>Note</th><th>Open</th>
-    </tr></thead><tbody></tbody>
+      <th>Member</th><th>Period</th><th>Suspense</th><th>Status</th><th style="width:220px">Progress</th><th>Note</th><th>Open</th>
+    </tr></thead>
+    <tbody></tbody>
   </table>
 </div>
 
+<!-- Detail + step editor -->
 <div class="card" id="detail" style="display:none">
-  <div style="display:flex;justify-content:space-between;align-items:center">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
     <h3 style="margin:0" id="d_title">Steps</h3>
     <div class="kit">
       <button class="btn" id="btn_complete" type="button">Complete current</button>
-      <button class="btn" id="btn_reopen" type="button">Reopen previous</button>
-      <button class="btn" id="btn_close" type="button">Close now</button>
+      <button class="btn" id="btn_reopen"   type="button">Reopen previous</button>
+      <button class="btn" id="btn_close"    type="button">Close now</button>
     </div>
   </div>
-  <div id="steps" style="margin-top:10px"></div>
+  <div style="margin:10px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <div class="bar" style="width:260px"><div id="d_fill" class="fill" style="width:0;background:#38a169"></div></div>
+    <span id="d_prog" class="badge">0%</span>
+    <span id="d_suspense" class="badge">Suspense —</span>
+  </div>
+  <div id="steps"></div>
 </div>
 
 <script type="module">
@@ -85,6 +120,7 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
     "Flight Draft","SEO Review","Flt Corrections","SEL/CCD Review","Flt Corrections",
     "CC Review","Flt Corrections","Rater Sign","CC Sign","Shirt QC","Ratee Sign","MPF"
   ];
+  const LAST_IDX = STEP_NAMES.length-1;
 
   const LOGIN="/family-dashboard/main/index.html";
   onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
@@ -95,33 +131,73 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
 
   const $=(s)=>document.querySelector(s);
   let ROWS=[], SEL=null;
-  function showErr(m){ const e=$("#err"); e.textContent=m||""; e.style.display=m?"block":"none"; }
 
-  // ---- load/render ----
+  // utils
+  const pad=(n)=>String(n).padStart(2,"0");
+  function dateISO(d){ return d? d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()):""; }
+  function tsToISO(v){ if(!v) return ""; if(typeof v==="string") return v; if(v.seconds) return new Date(v.seconds*1000).toISOString().slice(0,10); return ""; }
+  function addDaysStr(iso,days){ if(!iso) return ""; const d=new Date(iso+"T12:00:00"); d.setDate(d.getDate()+days); return dateISO(d); }
+  function progressPct(stepIndex,closed){ if(closed) return 100; const p=Math.round((Math.max(0,stepIndex)/LAST_IDX)*100); return Math.min(100,Math.max(0,p)); }
+  function barColor(p){ if(p<33) return "#d69e2e"; if(p<66) return "#3182ce"; if(p<100) return "#7c3aed"; return "#38a169"; }
+  function esc(s){ return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m])); }
+
+  // load
   async function load(){
-    try{
-      const snap = await getDocs(query(collection(db,"eads_evals"), orderBy("member")));
-      ROWS = snap.docs.map(d=>({id:d.id, ...d.data()}));
-      render();
-    }catch(e){ showErr(e.message||String(e)); }
+    const snap = await getDocs(query(collection(db,"eads_evals"), orderBy("member")));
+    ROWS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    // default month filter to current month
+    const now=new Date(); $("#month").value = now.getFullYear()+"-"+pad(now.getMonth()+1);
+    render();
   }
+
+  // render list
   function render(){
-    const q=($("#search").value||"").toLowerCase(), f=$("#filter").value;
-    const rows = ROWS
+    const q = ($("#search").value||"").toLowerCase();
+    const f = $("#filter").value;
+    const mo = $("#month").value; // YYYY-MM
+    let rows = ROWS
       .filter(r=> !q || (String(r.member||"").toLowerCase()+" "+String(r.note||"").toLowerCase()).includes(q))
-      .filter(r=> f==="" || (f==="open" ? !r.closed : !!r.closed));
+      .filter(r=> f==="" || (f==="open" ? !r.closed : !!r.closed))
+      .filter(r=> !mo || String(r.end||"").slice(0,7)===mo);
+
+    // enrich
+    rows = rows.map(r=>{
+      const stepIdx = r.stepIndex||0;
+      const status = r.closed ? "Closed" : (STEP_NAMES[stepIdx]||"—");
+      const pct = progressPct(stepIdx,r.closed);
+      const suspense = addDaysStr(r.end||"",45);
+      return {...r, _status:status, _pct:pct, _suspense:suspense};
+    });
+
+    // sort
+    const sort = $("#sort").value;
+    rows.sort((a,b)=>{
+      if(sort==="member") return String(a.member||"").localeCompare(String(b.member||""));
+      if(sort==="progress_desc") return (b._pct - a._pct) || String(a.member||"").localeCompare(String(b.member||""));
+      if(sort==="suspense_asc") return String(a._suspense||"").localeCompare(String(b._suspense||""));
+      if(sort==="status") return String(a._status||"").localeCompare(String(b._status||""));
+      if(sort==="step") return String(STEP_NAMES[a.stepIndex||0]||"").localeCompare(String(STEP_NAMES[b.stepIndex||0]||""));
+      return 0;
+    });
+
+    $("#count").textContent = rows.length+" result(s)";
+
     $("#tbl tbody").innerHTML = rows.map(r=>{
-      const cur = STEP_NAMES[r.stepIndex||0] || "—";
+      const barW = r._pct; const col = barColor(barW);
       return `<tr data-id="${r.id}">
-        <td>${esc(r.member)}</td>
+        <td>${esc(r.member||"")}</td>
         <td>${esc(r.start||"")} → ${esc(r.end||"")}</td>
-        <td>${esc(cur)}</td>
-        <td>${r.closed?"Yes":"No"}</td>
+        <td>${r._suspense||""}</td>
+        <td>${esc(r._status||"")}${r.closed?'':' '}</td>
+        <td>
+          <div class="bar" style="width:200px"><div class="fill" style="width:${barW}%;background:${col}"></div></div>
+          <div class="muted">${barW}%</div>
+        </td>
         <td>${esc(r.note||"")}</td>
         <td><button class="btn" type="button" data-open="${r.id}">Open</button></td>
       </tr>`;
     }).join("");
-    document.getElementById("count").textContent = rows.length+" result(s)";
+
     document.querySelectorAll("#tbl tbody tr").forEach(tr=>{
       tr.onclick=(e)=>{ if(e.target.dataset.open) return; select(tr.dataset.id); };
     });
@@ -130,8 +206,10 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
     });
   }
 
+  // select header form
   function select(id){
-    SEL=id; const r=ROWS.find(x=>x.id===id); if(!r) return;
+    SEL=id;
+    const r = ROWS.find(x=>x.id===id); if(!r) return;
     $("#f_member").value=r.member||""; $("#f_note").value=r.note||"";
     $("#f_start").value=r.start||"";   $("#f_end").value=r.end||"";
     $("#update").disabled=false; $("#remove").disabled=false; $("#sel").textContent="Selected "+id;
@@ -141,31 +219,24 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
     $("#update").disabled=true; $("#remove").disabled=true; $("#sel").textContent=""; SEL=null;
   }
 
-  // ---- CRUD: header ----
-  async function onSave(){
-    showErr("");
+  // CRUD header
+  document.getElementById("save").onclick = async ()=>{
     const member=$("#f_member").value.trim(), start=$("#f_start").value, end=$("#f_end").value;
-    if(!member){ showErr("Member is required."); return; }
-    if(!start||!end){ showErr("Start and End dates are required."); return; }
+    if(!member){ show("Member is required"); return; }
+    if(!start||!end){ show("Start and End dates are required"); return; }
     try{
-      document.getElementById("save").disabled=true;
-      const base = {
+      $("#save").disabled=true;
+      await addDoc(collection(db,"eads_evals"), {
         member, note: $("#f_note").value.trim(), start, end,
-        stepIndex: 0,
-        steps: STEP_NAMES,         // names only (static)
-        stepsDone: {},             // map: index -> timestamp
-        closed: false,
-        createdAt: serverTimestamp()
-      };
-      await addDoc(collection(db,"eads_evals"), base);
+        stepIndex: 0, steps: STEP_NAMES, stepsDone: {}, closed:false, createdAt: serverTimestamp()
+      });
       clearForm(); await load();
-    }catch(e){ showErr(e.message||String(e)); }
-    finally{ document.getElementById("save").disabled=false; }
-  }
-  async function onUpdate(){
+    }catch(e){ show(e.message||String(e)); } finally { $("#save").disabled=false; }
+  };
+  document.getElementById("update").onclick = async ()=>{
     if(!SEL) return;
     try{
-      document.getElementById("update").disabled=true;
+      $("#update").disabled=true;
       await updateDoc(doc(db,"eads_evals",SEL), {
         member: $("#f_member").value.trim(),
         note: $("#f_note").value.trim(),
@@ -173,129 +244,156 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
         end: $("#f_end").value
       });
       clearForm(); await load();
-    }catch(e){ showErr(e.message||String(e)); }
-    finally{ document.getElementById("update").disabled=false; }
-  }
-  async function onDelete(){
-    if(!SEL) return;
-    if(!confirm("Delete this evaluation?")) return;
+    }catch(e){ show(e.message||String(e)); } finally { $("#update").disabled=false; }
+  };
+  document.getElementById("remove").onclick = async ()=>{
+    if(!SEL) return; if(!confirm("Delete this evaluation?")) return;
     try{
-      document.getElementById("remove").disabled=true;
+      $("#remove").disabled=true;
       await deleteDoc(doc(db,"eads_evals",SEL));
-      clearForm(); document.getElementById("detail").style.display="none"; await load();
-    }catch(e){ showErr(e.message||String(e)); }
-    finally{ document.getElementById("remove").disabled=false; }
-  }
+      clearForm(); $("#detail").style.display="none"; await load();
+    }catch(e){ show(e.message||String(e)); } finally { $("#remove").disabled=false; }
+  };
 
-  // ---- detail: steps (uses stepsDone map) ----
-  function tsToISO(v){
-    if(!v) return "";
-    if(typeof v==="string") return v;
-    if(v.seconds) return new Date(v.seconds*1000).toISOString().slice(0,10);
-    return "";
-  }
+  // detail
   async function openDetail(id){
     SEL=id;
     const r = ROWS.find(x=>x.id===id) || (await getDoc(doc(db,"eads_evals",id))).data();
     r.id=id;
-    document.getElementById("d_title").textContent="Steps · "+(r.member||"")+" · "+(r.start||"")+" → "+(r.end||"");
+    $("#d_title").textContent = "Steps · "+(r.member||"")+" · "+(r.start||"")+" → "+(r.end||"");
+    // progress + suspense
+    const pct = progressPct(r.stepIndex||0, r.closed);
+    $("#d_fill").style.width = pct+"%";
+    $("#d_fill").style.background = barColor(pct);
+    $("#d_prog").textContent = pct+"%";
+    $("#d_suspense").textContent = "Suspense "+(addDaysStr(r.end||"",45)||"—");
     renderSteps(r);
-    document.getElementById("detail").style.display="block";
-  }
-  function renderSteps(rec){
-    const cur=rec.stepIndex||0, last=STEP_NAMES.length-1, done=rec.stepsDone||{};
-    document.getElementById("steps").innerHTML = STEP_NAMES.map((name,i)=>{
-      const when = tsToISO(done[i]);
-      const isCur = i===cur && !rec.closed;
-      const tag = when? '<span class="badge">Done '+when+'</span>' : (isCur? '<span class="badge">Current</span>':'');
-      return '<div class="step '+(isCur?'current':'')+'">'+
-        '<div><div>'+(i+1)+'. '+name+'</div><div class="muted">'+tag+'</div></div>'+
-        '<div class="kit">'+
-          '<button class="btn" type="button" data-set="'+i+'">Set current</button>'+
-          (when? '<button class="btn" type="button" data-clear="'+i+'">Clear date</button>':'')+
-        '</div>'+
-      '</div>';
-    }).join("");
-    document.getElementById("btn_complete").disabled = rec.closed || cur>=last;
-    document.getElementById("btn_reopen").disabled   = cur<=0;
-    document.getElementById("btn_close").disabled    = rec.closed;
-    document.querySelectorAll('#steps button[data-set]').forEach(b=> b.onclick=()=> setCurrent(rec.id, Number(b.dataset.set)));
-    document.querySelectorAll('#steps button[data-clear]').forEach(b=> b.onclick=()=> clearDate(rec.id, Number(b.dataset.clear)));
-    document.getElementById("btn_complete").onclick = ()=> completeCurrent(rec.id);
-    document.getElementById("btn_reopen").onclick   = ()=> reopenPrevious(rec.id);
-    document.getElementById("btn_close").onclick    = ()=> closeNow(rec.id);
+    $("#detail").style.display="block";
   }
 
-  // set current: move pointer and clear future done entries
+  function renderSteps(rec){
+    const cur = rec.stepIndex||0;
+    const done = rec.stepsDone||{};
+    const container=$("#steps"); container.innerHTML="";
+    STEP_NAMES.forEach((name,i)=>{
+      const row=document.createElement("div"); row.className="step"+(i===cur && !rec.closed?" current":"");
+      // left label
+      const left=document.createElement("div");
+      const when = tsToISO(done[i]);
+      left.innerHTML = `<div>${i+1}. ${name}</div><div class="muted">${when?("Done "+when):(i===cur&&!rec.closed?"Current":"")}</div>`;
+      // date input
+      const dateWrap=document.createElement("div");
+      dateWrap.innerHTML = `<input type="date" value="${when||""}" id="dt_${i}">`;
+      // buttons
+      const btns=document.createElement("div"); btns.className="kit";
+      btns.innerHTML = `
+        <button class="btn" data-set="${i}">Set current</button>
+        <button class="btn" data-save="${i}">Save date</button>
+        ${when? `<button class="btn" data-clear="${i}">Clear date</button>`:''}
+      `;
+      // spacer shows quick progress bar per step
+      const mini=document.createElement("div");
+      mini.innerHTML = `<div class="bar"><div class="fill" style="width:${(i/LAST_IDX)*100}%;background:#2b6cb0"></div></div>`;
+      row.append(left,dateWrap,btns,mini);
+      container.appendChild(row);
+    });
+
+    // wire buttons
+    container.querySelectorAll('button[data-set]').forEach(b=> b.onclick=()=> setCurrent(rec.id, Number(b.dataset.set)));
+    container.querySelectorAll('button[data-save]').forEach(b=> b.onclick=()=> saveStepDate(rec.id, Number(b.dataset.save)));
+    container.querySelectorAll('button[data-clear]').forEach(b=> b.onclick=()=> clearStepDate(rec.id, Number(b.dataset.clear)));
+
+    // top actions
+    $("#btn_complete").disabled = rec.closed || (rec.stepIndex||0)>=LAST_IDX;
+    $("#btn_reopen").disabled   = (rec.stepIndex||0)<=0;
+    $("#btn_close").disabled    = !!rec.closed;
+    $("#btn_complete").onclick = ()=> completeCurrent(rec.id);
+    $("#btn_reopen").onclick   = ()=> reopenPrevious(rec.id);
+    $("#btn_close").onclick    = ()=> closeNow(rec.id);
+  }
+
+  // retro edit: set a specific step to an explicit date string, then recompute pointer
+  async function saveStepDate(id, idx){
+    const v = $("#dt_"+idx).value;
+    if(!v){ show("Pick a date first"); return; }
+    try{
+      const patch = {}; patch["stepsDone."+idx] = v;
+      await updateDoc(doc(db,"eads_evals",id), patch);
+      await recomputePointer(id);
+      await load(); openDetail(id);
+    }catch(e){ show(e.message||String(e)); }
+  }
+
+  async function clearStepDate(id, idx){
+    try{
+      const patch = {}; patch["stepsDone."+idx] = null;
+      await updateDoc(doc(db,"eads_evals",id), patch);
+      await recomputePointer(id);
+      await load(); openDetail(id);
+    }catch(e){ show(e.message||String(e)); }
+  }
+
   async function setCurrent(id, idx){
     try{
-      const r = ROWS.find(x=>x.id===id) || {};
-      const done = Object.assign({}, r.stepsDone||{});
-      for(let i=idx;i<STEP_NAMES.length;i++) done[i]=null;
       const patch = { stepIndex: idx, closed:false };
-      for(const k in done){ patch['stepsDone.'+k] = done[k]; }
+      // clear future done marks
+      for(let i=idx;i<=LAST_IDX;i++) patch["stepsDone."+i] = null;
       await updateDoc(doc(db,"eads_evals",id), patch);
       await load(); openDetail(id);
-    }catch(e){ showErr(e.message||String(e)); }
+    }catch(e){ show(e.message||String(e)); }
   }
 
-  // clear a specific done date
-  async function clearDate(id, idx){
-    try{
-      const patch = {}; patch['stepsDone.'+idx] = null;
-      // ensure stepIndex not after cleared step
-      const r = ROWS.find(x=>x.id===id) || {};
-      const newIdx = Math.min(r?.stepIndex||0, idx);
-      patch.stepIndex = newIdx; patch.closed=false;
-      await updateDoc(doc(db,"eads_evals",id), patch);
-      await load(); openDetail(id);
-    }catch(e){ showErr(e.message||String(e)); }
-  }
-
-  // complete current: stamp map entry with serverTimestamp (not inside array)
   async function completeCurrent(id){
     try{
       const r = ROWS.find(x=>x.id===id) || {};
-      const idx = r.stepIndex||0, last=STEP_NAMES.length-1;
+      const idx = r.stepIndex||0;
       const patch = {};
-      patch['stepsDone.'+idx] = serverTimestamp();
-      patch.stepIndex = Math.min(idx+1, last);
-      patch.closed = (idx===last);
+      patch["stepsDone."+idx] = serverTimestamp(); // allowed in map
+      patch.stepIndex = Math.min(idx+1, LAST_IDX);
+      patch.closed = (idx===LAST_IDX);
       await updateDoc(doc(db,"eads_evals",id), patch);
       await load(); openDetail(id);
-    }catch(e){ showErr(e.message||String(e)); }
+    }catch(e){ show(e.message||String(e)); }
   }
 
-  // reopen previous: move pointer back and clear from that point
   async function reopenPrevious(id){
     try{
       const r = ROWS.find(x=>x.id===id) || {};
       const idx = Math.max((r.stepIndex||0)-1, 0);
       const patch = { stepIndex: idx, closed:false };
-      for(let i=idx;i<STEP_NAMES.length;i++) patch['stepsDone.'+i] = null;
+      for(let i=idx;i<=LAST_IDX;i++) patch["stepsDone."+i] = null;
       await updateDoc(doc(db,"eads_evals",id), patch);
       await load(); openDetail(id);
-    }catch(e){ showErr(e.message||String(e)); }
+    }catch(e){ show(e.message||String(e)); }
   }
 
-  // close now: mark final step done and close
   async function closeNow(id){
     try{
-      const last=STEP_NAMES.length-1;
-      const patch = {}; patch['stepsDone.'+last] = serverTimestamp();
-      patch.stepIndex = last; patch.closed = true;
+      const patch = {}; patch["stepsDone."+LAST_IDX] = serverTimestamp();
+      patch.stepIndex = LAST_IDX; patch.closed = true;
       await updateDoc(doc(db,"eads_evals",id), patch);
       await load(); openDetail(id);
-    }catch(e){ showErr(e.message||String(e)); }
+    }catch(e){ show(e.message||String(e)); }
   }
 
-  document.getElementById("save").onclick=onSave;
-  document.getElementById("update").onclick=onUpdate;
-  document.getElementById("remove").onclick=onDelete;
-  document.getElementById("search").oninput=render;
-  document.getElementById("filter").oninput=render;
+  // recompute pointer: set to first step without a date; if all dated -> closed
+  async function recomputePointer(id){
+    const snap = await getDoc(doc(db,"eads_evals",id));
+    const r = snap.data()||{};
+    const done = r.stepsDone||{};
+    let idx = 0;
+    while(idx<=LAST_IDX && done[idx]) idx++;
+    const patch = { stepIndex: Math.min(idx,LAST_IDX), closed: idx>LAST_IDX };
+    await updateDoc(doc(db,"eads_evals",id), patch);
+  }
 
-  function esc(s){ return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m])); }
+  // events
+  $("#search").oninput = render;
+  $("#filter").oninput = render;
+  $("#sort").oninput   = render;
+  $("#month").oninput  = render;
+
+  function show(m){ const e=$("#err"); e.textContent=m||""; e.style.display=m?"block":"none"; }
 
   load();
 </script>
