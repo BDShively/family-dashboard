@@ -220,7 +220,7 @@ th{color:var(--muted)}
   }
 
   // CRUD header
-  ocument.getElementById("save").onclick = async ()=>{
+  document.getElementById("save").onclick = async ()=>{
   const member=$("#f_member").value.trim(), start=$("#f_start").value, end=$("#f_end").value;
   if(!member){ show("Member is required"); return; }
   if(!start||!end){ show("Start and End dates are required"); return; }
