@@ -160,30 +160,43 @@ th{color:var(--muted)}.muted{color:var(--muted);font-size:12px}
   }
 
   async function onSave(){
-    showErr('');
-    const member = $('#f_member').value.trim();
-    const start  = $('#f_start').value;
-    const end    = $('#f_end').value;
-    if(!member){ showErr('Member is required.'); return; }
-    if(!start || !end){ showErr('Start and End dates are required.'); return; }
+  showErr('');
+  const member = $('#f_member').value.trim();
+  const start  = $('#f_start').value;
+  const end    = $('#f_end').value;
+  if(!member){ showErr('Member is required.'); return; }
+  if(!start || !end){ showErr('Start and End dates are required.'); return; }
 
-    try{
-      $('#save').disabled=true;
-      const base = {
-        member, note: $('#f_note').value.trim(), start, end,
-        createdAt: serverTimestamp(),
-        stepIndex: 0,
-        steps: STEP_NAMES.map(n=>({ name:n, doneAt: null })),
-        closed: false
-      };
-      await addDoc(collection(db,'eads_evals'), base);
-      clearForm(); await load();
-    }catch(e){
-      console.error(e); showErr(e.message||String(e));
-    }finally{
-      $('#save').disabled=false;
-    }
+  try{
+    // guard: db/auth present
+    if(!auth?.currentUser) throw new Error('Not signed in');
+    if(!db) throw new Error('Firebase not initialized');
+
+    $('#save').disabled = true;
+    const base = {
+      member,
+      note: $('#f_note').value.trim(),
+      start,
+      end,
+      stepIndex: 0,
+      steps: [
+        "Flight Draft","SEO Review","Flt Corrections","SEL/CCD Review","Flt Corrections",
+        "CC Review","Flt Corrections","Rater Sign","CC Sign","Shirt QC","Ratee Sign","MPF"
+      ].map(n=>({name:n, doneAt:null})),
+      closed: false,
+      createdAt: serverTimestamp()
+    };
+    await addDoc(collection(db,'eads_evals'), base);
+    clearForm();
+    await load();
+  }catch(e){
+    console.error(e);
+    showErr(e.code ? `${e.code}: ${e.message}` : (e.message||String(e)));
+  }finally{
+    $('#save').disabled = false;
   }
+}
+
   async function onUpdate(){
     if(!SEL) return;
     showErr('');
