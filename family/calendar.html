@@ -252,60 +252,83 @@ textarea{min-height:72px}
     return members.some(m=> fltMembers.has(m));
   }
 
-  function expandOccurrences(ev, a, b){
-    // yields array of {id,parentId,dateISO,start,end,allDay,title,members,notes}
-    const baseDate = toDate(ev.dateISO);
-    if(!ev.recur || !ev.recur.enabled){
-      if(!baseDate || !within(baseDate,a,b)) return [];
-      return [{...ev, parentId:ev.id, id:ev.id, occDateISO: ev.dateISO}];
-    }
-    // recurrence
-    const freq = String(ev.recur.freq||"monthly");
-    const rs   = toDate(ev.recur.start || ev.dateISO) || baseDate;
-    const re   = toDate(ev.recur.end   || ev.dateISO) || baseDate;
-    // clamp to range overlap
-    const start = new Date(Math.max(a.getTime(), rs.getTime()));
-    const end   = new Date(Math.min(b.getTime(), re.getTime()));
-    if(end < start) return [];
-    // step function
-    const step = (d)=>{
-      const n=new Date(d);
-      if(freq==="weekly") n.setDate(n.getDate()+7);
-      else if(freq==="biweekly") n.setDate(n.getDate()+14);
-      else if(freq==="bimonthly") n.setMonth(n.getMonth()+2);
-      else if(freq==="quarterly") n.setMonth(n.getMonth()+3);
-      else if(freq==="yearly") n.setFullYear(n.getFullYear()+1);
-      else n.setMonth(n.getMonth()+1); // monthly default
-      return n;
-    };
-    // align first occurrence to the event's day-of-month or weekday depending on freq
-    // simple rule: start from the later of rs and a; if that date's D is not the base D for monthly-like, adjust forward by days until same day number exists
-    const out=[];
-    let d = new Date(start);
-    if(freq==="weekly" || freq==="biweekly"){
-      // align weekday
-      const want = toDate(ev.dateISO).getDay();
-      while(d.getDay()!==want) d.setDate(d.getDate()+1);
-    }else{
-      // align day-of-month
-      const want = toDate(ev.dateISO).getDate();
-      if(d.getDate()!==want){
-        // move to the next occurrence date within this month or next months
-        let tmp=new Date(d);
-        tmp.setDate(want);
-        if(tmp < d) tmp.setMonth(tmp.getMonth()+1);
-        d = tmp;
-      }
-    }
-    // iterate
-    while(d<=end){
-      const di = iso(d);
-      const od = new Date(di+"T12:00:00");
-      if(within(od,a,b)) out.push({...ev, parentId:ev.id, id:ev.id+"@"+di, occDateISO:di});
-      d = step(d);
-    }
-    return out;
+ function expandOccurrences(ev, a, b){
+  const base = toDate(ev.dateISO); // original event date
+  if(!ev.recur || !ev.recur.enabled){
+    if(!base || !within(base,a,b)) return [];
+    return [{...ev, parentId:ev.id, id:ev.id, occDateISO: ev.dateISO}];
   }
+
+  const freq = String(ev.recur.freq||"monthly");            // weekly | biweekly | monthly | bimonthly | quarterly | yearly
+  const rs   = toDate(ev.recur.start || ev.dateISO) || base; // series window
+  const re   = toDate(ev.recur.end   || ev.dateISO) || base;
+
+  // clamp to visible range
+  const start = new Date(Math.max(a.getTime(), rs.getTime()));
+  const end   = new Date(Math.min(b.getTime(), re.getTime()));
+  if(end < start) return [];
+
+  // helpers
+  const addDays  = (d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+  const addMonths= (d,n)=>{ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; };
+  const addYears = (d,n)=>{ const x=new Date(d); x.setFullYear(x.getFullYear()+n); return x; };
+
+  // align first occurrence ≥ start
+  const baseD = base.getDate(), baseM = base.getMonth(), baseW = base.getDay();
+  let d;
+  switch(freq){
+    case "weekly":
+    case "biweekly": {
+      d = new Date(start);
+      // move forward to same weekday
+      const diff = (baseW - d.getDay() + 7) % 7;
+      d = addDays(d, diff);
+      break;
+    }
+    case "bimonthly":
+    case "quarterly":
+    case "monthly": {
+      // same day-of-month as base
+      const y = start.getFullYear(), m = start.getMonth();
+      d = new Date(y, m, baseD);
+      if(d < start) d = addMonths(d, 1); // first visible
+      break;
+    }
+    case "yearly": {
+      // lock to base month AND day
+      let y = start.getFullYear();
+      d = new Date(y, baseM, baseD);
+      if(d < start) d = new Date(y+1, baseM, baseD);
+      break;
+    }
+    default: {
+      // fallback monthly
+      const y = start.getFullYear(), m = start.getMonth();
+      d = new Date(y, m, baseD);
+      if(d < start) d = addMonths(d, 1);
+    }
+  }
+
+  // step
+  const step = (cur)=>{
+    if(freq==="weekly")   return addDays(cur, 7);
+    if(freq==="biweekly") return addDays(cur, 14);
+    if(freq==="bimonthly")return addMonths(cur, 2);
+    if(freq==="quarterly")return addMonths(cur, 3);
+    if(freq==="yearly")   return addYears(cur, 1);
+    return addMonths(cur, 1); // monthly
+  };
+
+  // generate occurrences within [start, end]
+  const out=[];
+  while(d<=end){
+    const di = iso(d);
+    const od = new Date(di+"T12:00:00");
+    if(within(od,a,b)) out.push({...ev, parentId:ev.id, id:ev.id+"@"+di, occDateISO:di});
+    d = step(d);
+  }
+  return out;
+}
 
   function rangeBounds(){
     if($("#view").value==="month"){ return [startOfWeek(startOfMonth(cur)), endOfWeek(endOfMonth(cur))]; }
