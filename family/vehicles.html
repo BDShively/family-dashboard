@@ -1,1 +1,527 @@
 
+<!-- /family-dashboard/vehicles/index.html -->
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vehicles</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--hi:#2b6cb0;--warn:#d69e2e;--bad:#e53e3e;--ok:#38a169}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Inter;background:var(--bg);color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.btn[disabled]{opacity:.6;cursor:not-allowed}
+.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
+.card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+label{font-size:12px;color:var(--muted)}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+textarea{min-height:70px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr}}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+.table th{color:var(--muted)}
+.kit{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#0e1430;color:#fff;cursor:pointer}
+.tab.active{outline:2px solid var(--hi)}
+.muted{color:var(--muted);font-size:12px}
+.alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
+.kpis{display:flex;gap:12px;flex-wrap:wrap}
+.kpi{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#101832;min-width:160px}
+.kpi .muted{font-size:12px}
+.bad{color:var(--bad)} .warn{color:var(--warn)} .ok{color:var(--ok)}
+</style>
+</head>
+<body>
+<header>
+  <div class="kit">
+    <a class="btn" href="/family-dashboard/main/index.html">&larr; Dashboard</a>
+    <span class="badge">Vehicles</span>
+  </div>
+  <div id="auth"></div>
+</header>
+
+<div id="err" class="alert"></div>
+
+<!-- VEHICLE PICKER -->
+<div class="card">
+  <div class="grid3">
+    <div>
+      <label>Vehicles</label>
+      <select id="vehPick"></select>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="muted">Upcoming items</div><div id="kpi_up">0</div></div>
+      <div class="kpi"><div class="muted">Maint cost (YTD)</div><div id="kpi_cost">$0</div></div>
+    </div>
+    <div style="align-self:end;text-align:right">
+      <button class="btn" id="vehNew">New Vehicle</button>
+      <button class="btn" id="vehSave">Save</button>
+      <button class="btn" id="vehDel" disabled>Delete</button>
+    </div>
+  </div>
+  <div class="grid3" style="margin-top:10px">
+    <div><label>Name</label><input id="v_name" placeholder="e.g., 2016 Ram 1500"></div>
+    <div><label>Year</label><input id="v_year" type="number" placeholder="2016"></div>
+    <div><label>Make</label><input id="v_make" placeholder="Ram"></div>
+    <div><label>Model</label><input id="v_model" placeholder="1500"></div>
+    <div><label>Trim</label><input id="v_trim" placeholder="Laramie"></div>
+    <div><label>VIN</label><input id="v_vin" placeholder="..."></div>
+    <div><label>Plate</label><input id="v_plate" placeholder="..."></div>
+    <div><label>Odometer (mi)</label><input id="v_odo" type="number" placeholder="123456"></div>
+    <div><label>Notes</label><input id="v_notes" placeholder="color, options"></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="card">
+  <div class="tabs">
+    <button class="tab active" data-tab="maint">Maintenance Log</button>
+    <button class="tab" data-tab="upcoming">Upcoming</button>
+    <button class="tab" data-tab="mods">Mods / Ideas</button>
+    <button class="tab" data-tab="ins">Insurance & Reg</button>
+    <button class="tab" data-tab="loan">Loan</button>
+  </div>
+</div>
+
+<!-- MAINTENANCE -->
+<div id="tab_maint" class="card">
+  <div class="grid3">
+    <div><label>Date</label><input id="m_date" type="date"></div>
+    <div><label>Odometer</label><input id="m_odo" type="number"></div>
+    <div><label>Type</label><input id="m_type" placeholder="oil, tires, brake"></div>
+    <div style="grid-column:span 2"><label>Notes</label><input id="m_notes" placeholder="brand, shop, parts"></div>
+    <div><label>Cost ($)</label><input id="m_cost" type="number" step="0.01"></div>
+  </div>
+  <div class="kit" style="margin-top:10px">
+    <button class="btn" id="m_add">Add</button>
+    <button class="btn" id="m_upd" disabled>Update</button>
+    <button class="btn" id="m_del" disabled>Delete</button>
+    <span id="m_sel" class="muted"></span>
+  </div>
+  <table class="table" style="margin-top:10px">
+    <thead><tr><th>Date</th><th>Odo</th><th>Type</th><th>Notes</th><th>Cost</th></tr></thead>
+    <tbody id="m_tbody"></tbody>
+  </table>
+</div>
+
+<!-- UPCOMING -->
+<div id="tab_upcoming" class="card" style="display:none">
+  <div class="grid3">
+    <div><label>Task</label><input id="u_task" placeholder="Oil, tires rotation, inspection"></div>
+    <div><label>Due Date</label><input id="u_date" type="date"></div>
+    <div><label>Due Miles</label><input id="u_miles" type="number"></div>
+    <div style="grid-column:span 2"><label>Notes</label><input id="u_notes" placeholder="interval, parts needed"></div>
+    <div><label>Status</label>
+      <select id="u_status"><option>Planned</option><option>Scheduled</option><option>Done</option></select>
+    </div>
+  </div>
+  <div class="kit" style="margin-top:10px">
+    <button class="btn" id="u_add">Add</button>
+    <button class="btn" id="u_upd" disabled>Update</button>
+    <button class="btn" id="u_del" disabled>Delete</button>
+    <span id="u_sel" class="muted"></span>
+  </div>
+  <table class="table" style="margin-top:10px">
+    <thead><tr><th>Task</th><th>Due</th><th>Due mi</th><th>Status</th><th>Notes</th></tr></thead>
+    <tbody id="u_tbody"></tbody>
+  </table>
+</div>
+
+<!-- MODS -->
+<div id="tab_mods" class="card" style="display:none">
+  <div class="grid3">
+    <div><label>Title</label><input id="x_title" placeholder="LEDs, intake, coilovers"></div>
+    <div><label>Status</label><select id="x_status"><option>Idea</option><option>Planned</option><option>Installed</option></select></div>
+    <div><label>Cost ($)</label><input id="x_cost" type="number" step="0.01"></div>
+    <div style="grid-column:span 3"><label>Notes</label><input id="x_notes" placeholder="parts list, vendors"></div>
+  </div>
+  <div class="kit" style="margin-top:10px">
+    <button class="btn" id="x_add">Add</button>
+    <button class="btn" id="x_upd" disabled>Update</button>
+    <button class="btn" id="x_del" disabled>Delete</button>
+    <span id="x_sel" class="muted"></span>
+  </div>
+  <table class="table" style="margin-top:10px">
+    <thead><tr><th>Title</th><th>Status</th><th>Cost</th><th>Notes</th></tr></thead>
+    <tbody id="x_tbody"></tbody>
+  </table>
+</div>
+
+<!-- INSURANCE & REG -->
+<div id="tab_ins" class="card" style="display:none">
+  <div class="grid3">
+    <div><label>Insurer</label><input id="i_insurer" placeholder="GEICO"></div>
+    <div><label>Policy #</label><input id="i_policy" placeholder="..."></div>
+    <div><label>Premium ($/mo)</label><input id="i_premium" type="number" step="0.01"></div>
+    <div><label>Renew Date</label><input id="i_renew" type="date"></div>
+    <div><label>Reg State</label><input id="i_state" placeholder="VA"></div>
+    <div><label>Reg Expire</label><input id="i_regexp" type="date"></div>
+  </div>
+  <div class="kit" style="margin-top:10px">
+    <button class="btn" id="i_save">Save</button>
+    <span id="i_status" class="muted"></span>
+  </div>
+</div>
+
+<!-- LOAN -->
+<div id="tab_loan" class="card" style="display:none">
+  <div class="grid3">
+    <div><label>Lender</label><input id="l_lender" placeholder="USAA"></div>
+    <div><label>Balance ($)</label><input id="l_balance" type="number" step="0.01"></div>
+    <div><label>Payment ($)</label><input id="l_payment" type="number" step="0.01"></div>
+    <div><label>Due Day</label><input id="l_dueday" type="number" min="1" max="31"></div>
+    <div><label>APR (%)</label><input id="l_apr" type="number" step="0.01"></div>
+    <div><label>Notes</label><input id="l_notes" placeholder="terms, extra principal"></div>
+  </div>
+  <div class="kit" style="margin-top:10px">
+    <button class="btn" id="l_save">Save</button>
+    <span id="l_status" class="muted"></span>
+  </div>
+</div>
+
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+  import {
+    collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  const LOGIN="/family-dashboard/main/index.html";
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
+    const c=document.getElementById("auth");
+    c.innerHTML='<span class="badge">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
+    document.getElementById("signout").onclick=(e)=>{e.preventDefault();signOutUser();};
+    init();
+  });
+
+  const $=(s)=>document.querySelector(s);
+  const esc=(s)=>String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));
+  function showErr(m){ const e=$("#err"); e.textContent=m||""; e.style.display=m?"block":"none"; }
+
+  let VEH=[], CUR=null; // arrays of vehicles and selected id
+  let M=[], U=[], X=[]; // maintenance, upcoming, mods
+  let I=null, L=null;   // insurance, loan singletons
+  let sel = {m:null,u:null,x:null};
+
+  // tabs
+  document.querySelectorAll(".tab").forEach(t=> t.onclick=()=> switchTab(t.dataset.tab));
+  function switchTab(k){
+    document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("active", t.dataset.tab===k));
+    ["maint","upcoming","mods","ins","loan"].forEach(id=>{
+      $("#tab_"+id).style.display = (id===k)?"block":"none";
+    });
+  }
+
+  // vehicle form helpers
+  function vehFromForm(){
+    const name=$("#v_name").value.trim(); if(!name){ showErr("Vehicle name is required"); return null; }
+    return {
+      name,
+      year:Number($("#v_year").value||0)||"",
+      make:$("#v_make").value.trim(),
+      model:$("#v_model").value.trim(),
+      trim:$("#v_trim").value.trim(),
+      vin:$("#v_vin").value.trim(),
+      plate:$("#v_plate").value.trim(),
+      odo:Number($("#v_odo").value||0)||0,
+      notes:$("#v_notes").value.trim()
+    };
+  }
+  function vehToForm(v){
+    $("#v_name").value=v.name||"";
+    $("#v_year").value=v.year||"";
+    $("#v_make").value=v.make||"";
+    $("#v_model").value=v.model||"";
+    $("#v_trim").value=v.trim||"";
+    $("#v_vin").value=v.vin||"";
+    $("#v_plate").value=v.plate||"";
+    $("#v_odo").value=v.odo||"";
+    $("#v_notes").value=v.notes||"";
+  }
+
+  async function init(){
+    // vehicle actions
+    $("#vehNew").onclick=()=>{ CUR=null; vehToForm({}); $("#vehDel").disabled=true; $("#vehPick").value=""; M=[];U=[];X=[];I=null;L=null; renderAll(); };
+    $("#vehSave").onclick=saveVehicle;
+    $("#vehDel").onclick=delVehicle;
+    $("#vehPick").oninput=()=>{ CUR = $("#vehPick").value||null; onVehicleChange(); };
+
+    // per-tab actions
+    $("#m_add").onclick=addMaint; $("#m_upd").onclick=updMaint; $("#m_del").onclick=delMaint;
+    $("#u_add").onclick=addUpcoming; $("#u_upd").onclick=updUpcoming; $("#u_del").onclick=delUpcoming;
+    $("#x_add").onclick=addMod; $("#x_upd").onclick=updMod; $("#x_del").onclick=delMod;
+    $("#i_save").onclick=saveIns; $("#l_save").onclick=saveLoan;
+
+    await loadVehicles();
+  }
+
+  // ===== VEHICLES =====
+  async function loadVehicles(){
+    const snap = await getDocs(collection(db,"veh_vehicles"));
+    VEH = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>String(a.name||"").localeCompare(b.name||""));
+    const pick=$("#vehPick");
+    pick.innerHTML = '<option value="">Select vehicle…</option>'+VEH.map(v=>`<option value="${v.id}">${esc(v.name||"")}</option>`).join("");
+    if(!CUR && VEH.length){ CUR=VEH[0].id; pick.value=CUR; }
+    onVehicleChange();
+  }
+  async function onVehicleChange(){
+    showErr("");
+    const v = VEH.find(x=>x.id===CUR);
+    $("#vehDel").disabled = !v;
+    vehToForm(v||{});
+    await Promise.all([loadMaint(),loadUpcoming(),loadMods(),loadIns(),loadLoan()]);
+    renderAll();
+  }
+  async function saveVehicle(){
+    showErr("");
+    const rec = vehFromForm(); if(!rec) return;
+    try{
+      if(CUR){ await updateDoc(doc(db,"veh_vehicles",CUR), rec); }
+      else{ const ref = await addDoc(collection(db,"veh_vehicles"), {...rec, createdAt: serverTimestamp()}); CUR=ref.id; }
+      await loadVehicles();
+    }catch(e){ showErr(e.message||String(e)); }
+  }
+  async function delVehicle(){
+    if(!CUR) return; if(!confirm("Delete this vehicle and its records?")) return;
+    try{
+      await deleteDoc(doc(db,"veh_vehicles",CUR));
+      // note: related collections remain; optional cleanup could be added
+      CUR=null; await loadVehicles();
+    }catch(e){ showErr(e.message||String(e)); }
+  }
+
+  // ===== MAINTENANCE =====
+  function mFromForm(){
+    const date=$("#m_date").value; if(!date){ showErr("Maintenance date required"); return null; }
+    return {
+      vehicleId: CUR, date, odo:Number($("#m_odo").value||0)||0,
+      type:$("#m_type").value.trim(), notes:$("#m_notes").value.trim(),
+      cost:Number($("#m_cost").value||0)||0
+    };
+  }
+  function mSelect(id){ sel.m=id; $("#m_upd").disabled=!id; $("#m_del").disabled=!id; $("#m_sel").textContent=id?("Selected "+id):""; }
+  async function loadMaint(){
+    if(!CUR){ M=[]; return; }
+    const snap = await getDocs(query(collection(db,"veh_maint"), where("vehicleId","==",CUR)));
+    M = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=> String(b.date||"").localeCompare(a.date||""));
+  }
+  async function addMaint(){ const rec=mFromForm(); if(!rec) return;
+    try{ await addDoc(collection(db,"veh_maint"), {...rec, createdAt: serverTimestamp()}); await loadMaint(); renderMaint(); updateKPIs(); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+  async function updMaint(){ if(!sel.m) return; const rec=mFromForm(); if(!rec) return;
+    try{ await updateDoc(doc(db,"veh_maint",sel.m), rec); await loadMaint(); renderMaint(); updateKPIs(); mSelect(null); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+  async function delMaint(){ if(!sel.m) return; if(!confirm("Delete maintenance item?")) return;
+    try{ await deleteDoc(doc(db,"veh_maint",sel.m)); await loadMaint(); renderMaint(); updateKPIs(); mSelect(null); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+
+  // ===== UPCOMING =====
+  function uFromForm(){
+    const task=$("#u_task").value.trim(); if(!task){ showErr("Task required"); return null; }
+    return {
+      vehicleId: CUR, task,
+      dueDate: $("#u_date").value||"",
+      dueMiles: Number($("#u_miles").value||0)||0,
+      status: $("#u_status").value,
+      notes: $("#u_notes").value.trim()
+    };
+  }
+  function uHealth(r){
+    // flag if within 30 days or 500 miles
+    const today = new Date();
+    let flag = "ok";
+    if(r.status!=="Done"){
+      if(r.dueDate){
+        const d=new Date(r.dueDate+"T12:00:00"); const diff=(d-today)/(1000*3600*24);
+        if(diff<0) flag="bad"; else if(diff<=30) flag="warn";
+      }
+      if(r.dueMiles && VEH.find(v=>v.id===CUR)?.odo){
+        const left = r.dueMiles - (VEH.find(v=>v.id===CUR).odo||0);
+        if(left<0) flag="bad"; else if(left<=500) flag="warn";
+      }
+    }
+    return flag;
+  }
+  function uSelect(id){ sel.u=id; $("#u_upd").disabled=!id; $("#u_del").disabled=!id; $("#u_sel").textContent=id?("Selected "+id):""; }
+  async function loadUpcoming(){
+    if(!CUR){ U=[]; return; }
+    const snap = await getDocs(query(collection(db,"veh_upcoming"), where("vehicleId","==",CUR)));
+    U = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>{
+      const ad=a.dueDate||"", bd=b.dueDate||""; const am=a.dueMiles||0, bm=b.dueMiles||0;
+      return (ad||"").localeCompare(bd||"") || (am-bm);
+    });
+  }
+  async function addUpcoming(){ const rec=uFromForm(); if(!rec) return;
+    try{ await addDoc(collection(db,"veh_upcoming"), {...rec, createdAt: serverTimestamp()}); await loadUpcoming(); renderUpcoming(); updateKPIs(); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+  async function updUpcoming(){ if(!sel.u) return; const rec=uFromForm(); if(!rec) return;
+    try{ await updateDoc(doc(db,"veh_upcoming",sel.u), rec); await loadUpcoming(); renderUpcoming(); updateKPIs(); uSelect(null); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+  async function delUpcoming(){ if(!sel.u) return; if(!confirm("Delete upcoming item?")) return;
+    try{ await deleteDoc(doc(db,"veh_upcoming",sel.u)); await loadUpcoming(); renderUpcoming(); updateKPIs(); uSelect(null); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+
+  // ===== MODS =====
+  function xFromForm(){
+    const title=$("#x_title").value.trim(); if(!title){ showErr("Title required"); return null; }
+    return {
+      vehicleId: CUR, title,
+      status: $("#x_status").value,
+      cost: Number($("#x_cost").value||0)||0,
+      notes: $("#x_notes").value.trim()
+    };
+  }
+  function xSelect(id){ sel.x=id; $("#x_upd").disabled=!id; $("#x_del").disabled=!id; $("#x_sel").textContent=id?("Selected "+id):""; }
+  async function loadMods(){
+    if(!CUR){ X=[]; return; }
+    const snap = await getDocs(query(collection(db,"veh_mods"), where("vehicleId","==",CUR)));
+    X = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>String(a.status).localeCompare(String(b.status)) || String(a.title).localeCompare(String(b.title)));
+  }
+  async function addMod(){ const rec=xFromForm(); if(!rec) return;
+    try{ await addDoc(collection(db,"veh_mods"), {...rec, createdAt: serverTimestamp()}); await loadMods(); renderMods(); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+  async function updMod(){ if(!sel.x) return; const rec=xFromForm(); if(!rec) return;
+    try{ await updateDoc(doc(db,"veh_mods",sel.x), rec); await loadMods(); renderMods(); xSelect(null); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+  async function delMod(){ if(!sel.x) return; if(!confirm("Delete mod/idea?")) return;
+    try{ await deleteDoc(doc(db,"veh_mods",sel.x)); await loadMods(); renderMods(); xSelect(null); }
+    catch(e){ showErr(e.message||String(e)); }
+  }
+
+  // ===== INSURANCE / REG =====
+  function iFromForm(){
+    return {
+      vehicleId: CUR,
+      insurer: $("#i_insurer").value.trim(),
+      policy: $("#i_policy").value.trim(),
+      premium: Number($("#i_premium").value||0)||0,
+      renew: $("#i_renew").value||"",
+      state: $("#i_state").value.trim(),
+      regExp: $("#i_regexp").value||""
+    };
+  }
+  function iToForm(r){
+    $("#i_insurer").value=r?.insurer||"";
+    $("#i_policy").value=r?.policy||"";
+    $("#i_premium").value=r?.premium||"";
+    $("#i_renew").value=r?.renew||"";
+    $("#i_state").value=r?.state||"";
+    $("#i_regexp").value=r?.regExp||"";
+    const status=[];
+    if(r?.renew){ const d=new Date(r.renew+"T12:00:00"); const days=(d-new Date())/(1000*3600*24); status.push("Renew "+(days<0?"overdue":days<30?"soon":"ok")); }
+    if(r?.regExp){ const d=new Date(r.regExp+"T12:00:00"); const days=(d-new Date())/(1000*3600*24); status.push("Reg "+(days<0?"overdue":days<30?"soon":"ok")); }
+    $("#i_status").textContent = status.join(" · ");
+  }
+  async function loadIns(){
+    if(!CUR){ I=null; iToForm(null); return; }
+    const snap = await getDocs(query(collection(db,"veh_ins"), where("vehicleId","==",CUR)));
+    I = snap.docs.map(d=>({id:d.id, ...d.data()}))[0]||null;
+    iToForm(I);
+  }
+  async function saveIns(){
+    if(!CUR){ showErr("Pick a vehicle"); return; }
+    try{
+      const rec=iFromForm();
+      if(I?.id) await updateDoc(doc(db,"veh_ins",I.id), rec);
+      else await addDoc(collection(db,"veh_ins"), {...rec, createdAt: serverTimestamp()});
+      await loadIns();
+    }catch(e){ showErr(e.message||String(e)); }
+  }
+
+  // ===== LOAN =====
+  function lFromForm(){
+    return {
+      vehicleId: CUR,
+      lender: $("#l_lender").value.trim(),
+      balance: Number($("#l_balance").value||0)||0,
+      payment: Number($("#l_payment").value||0)||0,
+      dueDay: Number($("#l_dueday").value||0)||0,
+      apr: Number($("#l_apr").value||0)||0,
+      notes: $("#l_notes").value.trim()
+    };
+  }
+  function lToForm(r){
+    $("#l_lender").value=r?.lender||"";
+    $("#l_balance").value=r?.balance||"";
+    $("#l_payment").value=r?.payment||"";
+    $("#l_dueday").value=r?.dueDay||"";
+    $("#l_apr").value=r?.apr||"";
+    $("#l_notes").value=r?.notes||"";
+    $("#l_status").textContent = r? ("Due around day "+(r.dueDay||"?")) : "";
+  }
+  async function loadLoan(){
+    if(!CUR){ L=null; lToForm(null); return; }
+    const snap = await getDocs(query(collection(db,"veh_loan"), where("vehicleId","==",CUR)));
+    L = snap.docs.map(d=>({id:d.id, ...d.data()}))[0]||null;
+    lToForm(L);
+  }
+  async function saveLoan(){
+    if(!CUR){ showErr("Pick a vehicle"); return; }
+    try{
+      const rec=lFromForm();
+      if(L?.id) await updateDoc(doc(db,"veh_loan",L.id), rec);
+      else await addDoc(collection(db,"veh_loan"), {...rec, createdAt: serverTimestamp()});
+      await loadLoan();
+    }catch(e){ showErr(e.message||String(e)); }
+  }
+
+  // ===== RENDERERS =====
+  function renderMaint(){
+    const tb=$("#m_tbody");
+    tb.innerHTML = M.map(r=>`<tr data-id="${r.id}">
+      <td>${r.date||""}</td><td>${r.odo||""}</td><td>${esc(r.type||"")}</td><td>${esc(r.notes||"")}</td><td>$${(Number(r.cost||0)).toFixed(2)}</td>
+    </tr>`).join("");
+    tb.querySelectorAll("tr").forEach(tr=> tr.onclick=()=>{ sel.m=tr.dataset.id; $("#m_sel").textContent="Selected "+sel.m; $("#m_upd").disabled=false; $("#m_del").disabled=false;
+      const r=M.find(x=>x.id===sel.m);
+      $("#m_date").value=r.date||""; $("#m_odo").value=r.odo||""; $("#m_type").value=r.type||""; $("#m_notes").value=r.notes||""; $("#m_cost").value=r.cost||"";
+    });
+  }
+  function renderUpcoming(){
+    const tb=$("#u_tbody");
+    tb.innerHTML = U.map(r=>{
+      const flag=uHealth(r); const tag=flag==="bad"?"bad":flag==="warn"?"warn":"ok";
+      const due = (r.dueDate||"") + (r.dueMiles? (" · "+r.dueMiles+" mi"):"");
+      return `<tr data-id="${r.id}">
+        <td class="${tag}">${esc(r.task||"")}</td>
+        <td>${r.dueDate||""}</td>
+        <td>${r.dueMiles||""}</td>
+        <td>${esc(r.status||"")}</td>
+        <td>${esc(r.notes||"")}</td>
+      </tr>`;
+    }).join("");
+    tb.querySelectorAll("tr").forEach(tr=> tr.onclick=()=>{ sel.u=tr.dataset.id; $("#u_sel").textContent="Selected "+sel.u; $("#u_upd").disabled=false; $("#u_del").disabled=false;
+      const r=U.find(x=>x.id===sel.u);
+      $("#u_task").value=r.task||""; $("#u_date").value=r.dueDate||""; $("#u_miles").value=r.dueMiles||""; $("#u_status").value=r.status||"Planned"; $("#u_notes").value=r.notes||"";
+    });
+  }
+  function renderMods(){
+    const tb=$("#x_tbody");
+    tb.innerHTML = X.map(r=>`<tr data-id="${r.id}">
+      <td>${esc(r.title||"")}</td><td>${esc(r.status||"")}</td><td>$${(Number(r.cost||0)).toFixed(2)}</td><td>${esc(r.notes||"")}</td>
+    </tr>`).join("");
+    tb.querySelectorAll("tr").forEach(tr=> tr.onclick=()=>{ sel.x=tr.dataset.id; $("#x_sel").textContent="Selected "+sel.x; $("#x_upd").disabled=false; $("#x_del").disabled=false;
+      const r=X.find(x=>x.id===sel.x);
+      $("#x_title").value=r.title||""; $("#x_status").value=r.status||"Idea"; $("#x_cost").value=r.cost||""; $("#x_notes").value=r.notes||"";
+    });
+  }
+  function updateKPIs(){
+    const year=new Date().getFullYear();
+    const total = M.filter(r=> String(r.date||"").startsWith(String(year))).reduce((a,r)=>a+(Number(r.cost||0)||0),0);
+    $("#kpi_cost").textContent = "$"+total.toFixed(0);
+    const up = U.filter(r=> r.status!=="Done").length;
+    $("#kpi_up").textContent = up;
+  }
+  function renderAll(){ renderMaint(); renderUpcoming(); renderMods(); updateKPIs(); }
+</script>
+</body></html>
