@@ -220,19 +220,22 @@ th{color:var(--muted)}
   }
 
   // CRUD header
-  document.getElementById("save").onclick = async ()=>{
-    const member=$("#f_member").value.trim(), start=$("#f_start").value, end=$("#f_end").value;
-    if(!member){ show("Member is required"); return; }
-    if(!start||!end){ show("Start and End dates are required"); return; }
-    try{
-      $("#save").disabled=true;
-      await addDoc(collection(db,"eads_evals"), {
-        member, note: $("#f_note").value.trim(), start, end,
-        stepIndex: 0, steps: STEP_NAMES, stepsDone: {}, closed:false, createdAt: serverTimestamp()
-      });
-      clearForm(); await load();
-    }catch(e){ show(e.message||String(e)); } finally { $("#save").disabled=false; }
-  };
+  ocument.getElementById("save").onclick = async ()=>{
+  const member=$("#f_member").value.trim(), start=$("#f_start").value, end=$("#f_end").value;
+  if(!member){ show("Member is required"); return; }
+  if(!start||!end){ show("Start and End dates are required"); return; }
+  try{
+    $("#save").disabled=true;
+    await addDoc(collection(db,"eads_evals"), {
+      member, note: $("#f_note").value.trim(), start, end,
+      stepIndex: 0, steps: STEP_NAMES, stepsDone: {}, closed:false, createdAt: serverTimestamp()
+    });
+    clearForm(); await load();
+  }catch(e){
+    console.error("SAVE_EVALS", e);
+    show(e.code ? `${e.code}: ${e.message}` : (e.message||String(e)));
+  }finally{ $("#save").disabled=false; }
+};
   document.getElementById("update").onclick = async ()=>{
     if(!SEL) return;
     try{
