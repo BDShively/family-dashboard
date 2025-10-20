@@ -11,13 +11,10 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
 .btn[disabled]{opacity:.6;cursor:not-allowed}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
-.row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-@media(max-width:1000px){.row{grid-template-columns:1fr 1fr}}
 label{font-size:12px;color:var(--muted)}
 input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
 textarea{min-height:72px}
 .hdr{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.hdr .title{font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .cell{min-height:110px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px;position:relative}
 .cell:nth-child(7n){border-right:none}
@@ -32,14 +29,21 @@ textarea{min-height:72px}
 .table th,.table td{padding:6px 8px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
 .badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
 .alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
-.kit{display:flex;gap:8px;flex-wrap:wrap}
+.kit{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#0e1430;cursor:pointer;font-size:12px}
+.chip.active{outline:2px solid var(--hi)}
+.row2{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:1000px){.row2{grid-template-columns:1fr 1fr}}
+.hint{color:var(--muted);font-size:12px}
+.divider{height:1px;background:var(--line);margin:10px 0}
 </style>
 </head>
 <body>
 <header>
   <div class="kit">
     <a class="btn" href="/family-dashboard/family/index.html">&larr; Family</a>
-    <span class="title">Family Calendar</span>
+    <span class="badge">Family Calendar</span>
   </div>
   <div id="auth"></div>
 </header>
@@ -56,12 +60,12 @@ textarea{min-height:72px}
       <option value="month">Month</option>
       <option value="week">Week</option>
     </select>
-    <select id="fltMember" class="btn" style="background:#0f1330">
-      <option value="">All members</option>
-      <option>Beau</option><option>Brandy</option><option>Dalton</option>
-      <option>Liam</option><option>Chloe</option><option>Lilliana</option>
-    </select>
     <span id="count" class="badge">0 events</span>
+  </div>
+  <div class="divider"></div>
+  <div>
+    <label>Filter members (multi-select). If none selected, all events show. Use “None” to include events with no member.</label>
+    <div id="fltChips" class="chips"></div>
   </div>
 </div>
 
@@ -78,24 +82,44 @@ textarea{min-height:72px}
 <!-- Editor -->
 <div class="card">
   <h3 style="margin:0 0 8px 0">Event Editor</h3>
-  <div class="row">
-    <div><label>Title</label><input id="e_title" placeholder="e.g., Practice, Appointment"></div>
-    <div><label>Family Member</label>
-      <select id="e_member">
-        <option>Beau</option><option>Brandy</option><option>Dalton</option>
-        <option>Liam</option><option>Chloe</option><option>Lilliana</option>
-      </select>
-    </div>
+  <div class="row2">
+    <div><label>Title</label><input id="e_title" placeholder="e.g., Practice, Appointment, Birthday"></div>
     <div><label>Date</label><input id="e_date" type="date"></div>
-    <div><label>All Day?</label>
-      <select id="e_all"><option value="yes">Yes</option><option value="no" selected>No</option></select>
-    </div>
+    <div><label>All Day?</label><select id="e_all"><option value="yes">Yes</option><option value="no" selected>No</option></select></div>
+    <div><label>Notes</label><input id="e_notes" placeholder="optional"></div>
   </div>
-  <div class="row" style="margin-top:10px">
+  <div class="row2" style="margin-top:10px">
     <div><label>Start Time</label><input id="e_start" type="time"></div>
     <div><label>End Time</label><input id="e_end" type="time"></div>
-    <div style="grid-column: span 2"><label>Notes</label><textarea id="e_notes" placeholder="optional"></textarea></div>
+    <div style="grid-column: span 2">
+      <label>Members (multi-select; leave all off for “no member”)</label>
+      <div id="e_memberChips" class="chips"></div>
+    </div>
   </div>
+
+  <div class="divider"></div>
+
+  <div class="row2">
+    <div><label>Recurring?</label>
+      <div class="kit">
+        <input id="e_recur_on" type="checkbox"><span class="hint">Enable recurrence</span>
+      </div>
+    </div>
+    <div><label>Frequency</label>
+      <select id="e_recur_freq">
+        <option value="monthly">Monthly</option>
+        <option value="bimonthly">Bimonthly (every 2 months)</option>
+        <option value="weekly">Weekly</option>
+        <option value="biweekly">Biweekly (every 2 weeks)</option>
+        <option value="quarterly">Quarterly</option>
+        <option value="yearly">Yearly</option>
+      </select>
+    </div>
+    <div><label>Repeat Start</label><input id="e_recur_start" type="date"></div>
+    <div><label>Repeat End</label><input id="e_recur_end" type="date"></div>
+  </div>
+  <div class="hint" style="margin-top:4px">Recurrence expands into the grid/list only within the selected view range; edits apply to the whole series.</div>
+
   <div class="kit" style="margin-top:10px">
     <button class="btn" id="save">Save</button>
     <button class="btn" id="update" disabled>Update</button>
@@ -108,7 +132,7 @@ textarea{min-height:72px}
 <div class="card">
   <h3 style="margin:0 0 8px 0">Events in Range</h3>
   <table class="table">
-    <thead><tr><th>Date</th><th>Time</th><th>Member</th><th>Title</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Date</th><th>Time</th><th>Members</th><th>Title</th><th>Notes</th></tr></thead>
     <tbody id="tbl"></tbody>
   </table>
 </div>
@@ -117,7 +141,9 @@ textarea{min-height:72px}
   import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
   import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+  const PEOPLE = ["Beau","Brandy","Dalton","Liam","Chloe","Lilliana"];
   const LOGIN="/family-dashboard/main/index.html";
+
   onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
     const c=document.getElementById("auth");
     c.innerHTML='<span class="badge">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
@@ -125,11 +151,13 @@ textarea{min-height:72px}
     init();
   });
 
-  // --- state
+  // state
   let ALL=[], SEL=null;
   let cur = startOfMonth(new Date()); // anchor for current view
+  let fltMembers = new Set(); // empty -> show all
+  let editorMembers = new Set(); // selected for editor
 
-  // --- utils
+  // utils
   const $=(s)=>document.querySelector(s);
   const pad=(n)=>String(n).padStart(2,"0");
   const iso=(d)=> d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
@@ -140,38 +168,160 @@ textarea{min-height:72px}
   function toDate(v){ if(!v) return null; if(typeof v==="string") return new Date(v+"T12:00:00"); if(v.seconds) return new Date(v.seconds*1000); return v; }
   function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));}
   function within(d,a,b){ const t=d.getTime(); return t>=a.getTime() && t<=b.getTime(); }
+  function timeRange(e){ return e.allDay? "All day" : ((e.start||"")+(e.end? "–"+e.end:"")); }
 
-  // --- init
+  // chips
+  function renderChips(containerId, setRef, includeNone){
+    const wrap=$(containerId); wrap.innerHTML="";
+    const names = includeNone ? ["None",...PEOPLE] : PEOPLE;
+    names.forEach(name=>{
+      const div=document.createElement("div");
+      div.className="chip"+(setRef.has(name)?" active":"");
+      div.textContent=name;
+      div.onclick=()=>{
+        if(setRef.has(name)) setRef.delete(name); else setRef.add(name);
+        // special behavior: "None" cannot coexist with others
+        if(includeNone && name==="None" && setRef.has("None")){
+          PEOPLE.forEach(p=>setRef.delete(p));
+        }
+        if(includeNone && name!=="None"){ setRef.delete("None"); }
+        renderChips(containerId,setRef,includeNone);
+        renderAll();
+      };
+      wrap.appendChild(div);
+    });
+  }
+
   async function init(){
+    // filter chips
+    renderChips("#fltChips", fltMembers, true);
+    // editor chips
+    renderChips("#e_memberChips", editorMembers, false);
+
     $("#view").oninput=renderAll;
-    $("#fltMember").oninput=renderAll;
     $("#prev").onclick=()=>{ if($("#view").value==="month"){ cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);} else { cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()-7);} renderAll(); };
     $("#next").onclick=()=>{ if($("#view").value==="month"){ cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);} else { cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+7);} renderAll(); };
 
     // editor
     $("#save").onclick=onSave; $("#update").onclick=onUpdate; $("#remove").onclick=onDelete;
     $("#e_date").value = iso(new Date());
+    $("#e_recur_on").oninput=toggleRecurInputs;
 
     await load();
+  }
+
+  function toggleRecurInputs(){
+    const on = $("#e_recur_on").checked;
+    ["#e_recur_freq","#e_recur_start","#e_recur_end"].forEach(id=> $(id).disabled=!on);
+    if(on){
+      if(!$("#e_recur_start").value) $("#e_recur_start").value = $("#e_date").value || iso(new Date());
+      if(!$("#e_recur_end").value){
+        const d=new Date($("#e_recur_start").value+"T12:00:00"); d.setFullYear(d.getFullYear()+1);
+        $("#e_recur_end").value = iso(d);
+      }
+    }
   }
 
   async function load(){
     const snap = await getDocs(collection(db,"family_events"));
     ALL = snap.docs.map(d=>{
       const x=d.data();
+      const members = Array.isArray(x.members)? x.members.filter(Boolean) : (x.member? [x.member] : []);
       return {
         id:d.id,
         title: x.title||"",
-        member: x.member||"",
+        members,
         dateISO: typeof x.date==="string"? x.date : (x.date?.seconds? new Date(x.date.seconds*1000).toISOString().slice(0,10) : ""),
         start: x.start||"",
         end: x.end||"",
         allDay: !!x.allDay,
         notes: x.notes||"",
+        recur: x.recur || { enabled:false },
         createdAt: x.createdAt||null
       };
     });
     renderAll();
+  }
+
+  function matchFilter(members){
+    // if no filters selected -> include everything
+    if(fltMembers.size===0) return true;
+    // if "None" selected include events with zero members
+    if(fltMembers.has("None") && members.length===0) return true;
+    // otherwise require intersection
+    return members.some(m=> fltMembers.has(m));
+  }
+
+  function expandOccurrences(ev, a, b){
+    // yields array of {id,parentId,dateISO,start,end,allDay,title,members,notes}
+    const baseDate = toDate(ev.dateISO);
+    if(!ev.recur || !ev.recur.enabled){
+      if(!baseDate || !within(baseDate,a,b)) return [];
+      return [{...ev, parentId:ev.id, id:ev.id, occDateISO: ev.dateISO}];
+    }
+    // recurrence
+    const freq = String(ev.recur.freq||"monthly");
+    const rs   = toDate(ev.recur.start || ev.dateISO) || baseDate;
+    const re   = toDate(ev.recur.end   || ev.dateISO) || baseDate;
+    // clamp to range overlap
+    const start = new Date(Math.max(a.getTime(), rs.getTime()));
+    const end   = new Date(Math.min(b.getTime(), re.getTime()));
+    if(end < start) return [];
+    // step function
+    const step = (d)=>{
+      const n=new Date(d);
+      if(freq==="weekly") n.setDate(n.getDate()+7);
+      else if(freq==="biweekly") n.setDate(n.getDate()+14);
+      else if(freq==="bimonthly") n.setMonth(n.getMonth()+2);
+      else if(freq==="quarterly") n.setMonth(n.getMonth()+3);
+      else if(freq==="yearly") n.setFullYear(n.getFullYear()+1);
+      else n.setMonth(n.getMonth()+1); // monthly default
+      return n;
+    };
+    // align first occurrence to the event's day-of-month or weekday depending on freq
+    // simple rule: start from the later of rs and a; if that date's D is not the base D for monthly-like, adjust forward by days until same day number exists
+    const out=[];
+    let d = new Date(start);
+    if(freq==="weekly" || freq==="biweekly"){
+      // align weekday
+      const want = toDate(ev.dateISO).getDay();
+      while(d.getDay()!==want) d.setDate(d.getDate()+1);
+    }else{
+      // align day-of-month
+      const want = toDate(ev.dateISO).getDate();
+      if(d.getDate()!==want){
+        // move to the next occurrence date within this month or next months
+        let tmp=new Date(d);
+        tmp.setDate(want);
+        if(tmp < d) tmp.setMonth(tmp.getMonth()+1);
+        d = tmp;
+      }
+    }
+    // iterate
+    while(d<=end){
+      const di = iso(d);
+      const od = new Date(di+"T12:00:00");
+      if(within(od,a,b)) out.push({...ev, parentId:ev.id, id:ev.id+"@"+di, occDateISO:di});
+      d = step(d);
+    }
+    return out;
+  }
+
+  function rangeBounds(){
+    if($("#view").value==="month"){ return [startOfWeek(startOfMonth(cur)), endOfWeek(endOfMonth(cur))]; }
+    return [startOfWeek(cur), endOfWeek(cur)];
+  }
+
+  function filteredOccurrences(){
+    const [a,b]=rangeBounds();
+    const occs = [];
+    ALL.forEach(ev=>{
+      const list = expandOccurrences(ev,a,b);
+      list.forEach(o=>{ if(matchFilter(o.members)) occs.push(o); });
+    });
+    // sort by date then time
+    occs.sort((x,y)=> (x.occDateISO||"").localeCompare(y.occDateISO||"") || (x.start||"").localeCompare(y.start||""));
+    return occs;
   }
 
   function renderAll(){
@@ -181,12 +331,7 @@ textarea{min-height:72px}
     renderList();
   }
 
-  function filtered(){
-    const who = $("#fltMember").value;
-    return ALL.filter(r=> !who || r.member===who);
-  }
-
-  // --- Month view
+  // Month view
   function renderMonth(){
     const grid=$("#monthGrid"); grid.innerHTML="";
     const first = startOfMonth(cur);
@@ -197,14 +342,12 @@ textarea{min-height:72px}
 
     const rows=[];
     let d=new Date(from);
-    while(d<=to){
-      rows.push(new Date(d));
-      d.setDate(d.getDate()+1);
-    }
+    while(d<=to){ rows.push(new Date(d)); d.setDate(d.getDate()+1); }
     grid.style.gridTemplateRows = "repeat(6,1fr)";
 
     const todayISO = iso(new Date());
-    const rowsData = filtered();
+    const occs = filteredOccurrences();
+
     rows.forEach(day=>{
       const inMo = day.getMonth()===cur.getMonth();
       const cell=document.createElement("div");
@@ -216,13 +359,15 @@ textarea{min-height:72px}
       cell.appendChild(label);
 
       // events for this day
-      const evs = rowsData.filter(r=> r.dateISO===iso(day)).sort((a,b)=> (a.start||"").localeCompare(b.start||""));
+      const dayISO = iso(day);
+      const evs = occs.filter(r=> r.occDateISO===dayISO);
       evs.forEach(e=>{
         const el=document.createElement("div");
         el.className="ev";
-        const time = e.allDay? "All day" : ((e.start||"")+(e.end? "–"+e.end:""));
-        el.innerHTML = `<div>${esc(e.title)} <span class="who">· ${esc(e.member)}</span></div><div class="who">${esc(time)}</div>`;
-        el.onclick=()=> selectEvent(e.id);
+        const time = timeRange(e);
+        const who = e.members.length? e.members.join(", ") : "—";
+        el.innerHTML = `<div>${esc(e.title)} <span class="who">· ${esc(who)}</span></div><div class="who">${esc(time)}</div>`;
+        el.onclick=()=> selectEvent(e.parentId);
         cell.appendChild(el);
       });
 
@@ -230,16 +375,18 @@ textarea{min-height:72px}
       cell.onclick=(evt)=>{ if(evt.target===cell||evt.target===label){ prefillDate(iso(day)); } };
       grid.appendChild(cell);
     });
+
+    $("#count").textContent = occs.length+" events";
   }
 
-  // --- Week view
+  // Week view
   function renderWeek(){
     const start = startOfWeek(cur);
     const end   = endOfWeek(cur);
     $("#rangeLbl").textContent = start.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" – "+end.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
     const wrap=$("#weekWrap"); wrap.innerHTML="";
+    const occs = filteredOccurrences();
 
-    const rowsData = filtered();
     for(let i=0;i<7;i++){
       const d=new Date(start); d.setDate(start.getDate()+i);
       const box=document.createElement("div");
@@ -247,114 +394,126 @@ textarea{min-height:72px}
       box.innerHTML = `<h4>${d.toLocaleString(undefined,{weekday:"short"})} · ${d.getMonth()+1}/${d.getDate()}</h4><div class="slot"></div>`;
       box.onclick=()=> prefillDate(iso(d));
       const slot=box.querySelector(".slot");
-      const evs = rowsData.filter(r=> r.dateISO===iso(d)).sort((a,b)=> (a.start||"").localeCompare(b.start||""));
-      if(evs.length===0){ slot.innerHTML='<div class="muted">No events</div>'; }
+      const dayISO=iso(d);
+      const evs = occs.filter(r=> r.occDateISO===dayISO);
+      if(evs.length===0){ slot.innerHTML='<div class="hint">No events</div>'; }
       else{
         slot.innerHTML = evs.map(e=>{
-          const time = e.allDay? "All day" : ((e.start||"")+(e.end? "–"+e.end:""));
-          return `<div class="ev" data-id="${e.id}"><div>${esc(e.title)} · <span class="who">${esc(e.member)}</span></div><div class="who">${esc(time)}</div></div>`;
+          const time = timeRange(e);
+          const who = e.members.length? e.members.join(", ") : "—";
+          return `<div class="ev" data-id="${e.parentId}"><div>${esc(e.title)} · <span class="who">${esc(who)}</span></div><div class="who">${esc(time)}</div></div>`;
         }).join("");
         slot.querySelectorAll(".ev").forEach(n=> n.onclick=(evt)=>{ evt.stopPropagation(); selectEvent(n.dataset.id); });
       }
       wrap.appendChild(box);
     }
+
+    $("#count").textContent = occs.length+" events";
   }
 
-  // --- Range list + counter
-  function rangeBounds(){
-    if($("#view").value==="month"){ return [startOfWeek(startOfMonth(cur)), endOfWeek(endOfMonth(cur))]; }
-    return [startOfWeek(cur), endOfWeek(cur)];
-  }
+  // Range list
   function renderList(){
-    const [a,b]=rangeBounds();
-    const who=$("#fltMember").value;
-    const rows = ALL.filter(r=>{
-      const d = toDate(r.dateISO);
-      return d && within(d,a,b) && (!who || r.member===who);
-    }).sort((x,y)=> (x.dateISO||"").localeCompare(y.dateISO||"") || (x.start||"").localeCompare(y.start||""));
-
-    $("#count").textContent = rows.length+" events";
+    const rows = filteredOccurrences();
     $("#tbl").innerHTML = rows.map(r=>{
-      const t = r.allDay? "All day" : ((r.start||"")+(r.end? "–"+r.end:""));
-      return `<tr data-id="${r.id}"><td>${r.dateISO||""}</td><td>${esc(t)}</td><td>${esc(r.member)}</td><td>${esc(r.title)}</td><td>${esc(r.notes||"")}</td></tr>`;
+      const t = timeRange(r);
+      const who = r.members.length? r.members.join(", ") : "—";
+      return `<tr data-id="${r.parentId}"><td>${r.occDateISO||""}</td><td>${esc(t)}</td><td>${esc(who)}</td><td>${esc(r.title)}</td><td>${esc(r.notes||"")}</td></tr>`;
     }).join("");
     document.querySelectorAll("#tbl tr").forEach(tr=> tr.onclick=()=> selectEvent(tr.dataset.id));
   }
 
-  // --- editor ops
+  // Editor helpers
   function prefillDate(dISO){
     $("#e_date").value=dISO;
     $("#e_title").focus();
   }
-
-  function readForm(){
-    const title=$("#e_title").value.trim(); if(!title){ msg("Title required"); return null; }
-    const date=$("#e_date").value; if(!date){ msg("Date required"); return null; }
-    const all=$("#e_all").value==="yes";
-    const start = all? "" : ($("#e_start").value||"");
-    const end   = all? "" : ($("#e_end").value||"");
-    return {
-      title,
-      member: $("#e_member").value,
-      date,
-      start,
-      end,
-      allDay: all,
-      notes: $("#e_notes").value.trim()
-    };
+  function readEditorMembers(){ return Array.from(editorMembers); }
+  function fillEditorMembers(arr){
+    editorMembers = new Set(arr||[]);
+    renderChips("#e_memberChips", editorMembers, false);
   }
-  function fillForm(r){
-    $("#e_title").value=r.title||"";
-    $("#e_member").value=r.member||"Beau";
-    $("#e_date").value=r.dateISO||iso(new Date());
-    $("#e_all").value=r.allDay? "yes":"no";
-    $("#e_start").value=r.start||"";
-    $("#e_end").value=r.end||"";
-    $("#e_notes").value=r.notes||"";
-    $("#update").disabled=false; $("#remove").disabled=false; $("#sel").textContent="Selected "+r.id;
-  }
-  function clearForm(){
+  function clearEditor(){
     SEL=null;
-    $("#e_title").value=""; $("#e_member").value="Beau"; $("#e_date").value=iso(new Date());
-    $("#e_all").value="no"; $("#e_start").value=""; $("#e_end").value=""; $("#e_notes").value="";
+    $("#e_title").value=""; $("#e_date").value=iso(new Date());
+    $("#e_all").value="no"; $("#e_start").value=""; $("#e_end").value="";
+    $("#e_notes").value="";
+    fillEditorMembers([]);
+    $("#e_recur_on").checked=false; $("#e_recur_freq").value="monthly";
+    $("#e_recur_start").value=""; $("#e_recur_end").value="";
+    toggleRecurInputs();
     $("#update").disabled=true; $("#remove").disabled=true; $("#sel").textContent="none";
   }
-  function msg(t){ const e=$("#err"); e.textContent=t; e.style.display=t?"block":"none"; }
+  function fillForm(ev){
+    $("#e_title").value=ev.title||"";
+    $("#e_date").value=ev.dateISO||iso(new Date());
+    $("#e_all").value=ev.allDay? "yes":"no";
+    $("#e_start").value=ev.start||"";
+    $("#e_end").value=ev.end||"";
+    $("#e_notes").value=ev.notes||"";
+    fillEditorMembers(ev.members||[]);
+    const r=ev.recur||{enabled:false};
+    $("#e_recur_on").checked=!!r.enabled;
+    $("#e_recur_freq").value=r.freq||"monthly";
+    $("#e_recur_start").value=r.start||"";
+    $("#e_recur_end").value=r.end||"";
+    toggleRecurInputs();
+    $("#update").disabled=false; $("#remove").disabled=false; $("#sel").textContent="Selected "+ev.id;
+  }
 
+  function showErr(t){ const e=$("#err"); e.textContent=t; e.style.display=t?"block":"none"; }
+
+  // CRUD
   async function onSave(){
-    msg("");
-    const rec=readForm(); if(!rec) return;
+    showErr("");
+    const rec = readForm(); if(!rec) return;
     try{
       $("#save").disabled=true;
       await addDoc(collection(db,"family_events"), { ...rec, createdAt: serverTimestamp() });
-      clearForm(); await load();
-    }catch(e){ msg(e.message||String(e)); }
+      clearEditor(); await load();
+    }catch(e){ showErr(e.message||String(e)); }
     finally{ $("#save").disabled=false; }
   }
   async function onUpdate(){
     if(!SEL) return;
-    msg("");
-    const rec=readForm(); if(!rec) return;
+    showErr("");
+    const rec = readForm(); if(!rec) return;
     try{
       $("#update").disabled=true;
       await updateDoc(doc(db,"family_events",SEL), rec);
-      clearForm(); await load();
-    }catch(e){ msg(e.message||String(e)); }
+      clearEditor(); await load();
+    }catch(e){ showErr(e.message||String(e)); }
     finally{ $("#update").disabled=false; }
   }
   async function onDelete(){
     if(!SEL) return;
-    if(!confirm("Delete this event?")) return;
+    if(!confirm("Delete this event (series)?")) return;
     try{
       $("#remove").disabled=true;
       await deleteDoc(doc(db,"family_events",SEL));
-      clearForm(); await load();
-    }catch(e){ msg(e.message||String(e)); }
+      clearEditor(); await load();
+    }catch(e){ showErr(e.message||String(e)); }
     finally{ $("#remove").disabled=false; }
   }
+  function readForm(){
+    const title=$("#e_title").value.trim(); if(!title){ showErr("Title required"); return null; }
+    const date=$("#e_date").value; if(!date){ showErr("Date required"); return null; }
+    const all=$("#e_all").value==="yes";
+    const start = all? "" : ($("#e_start").value||"");
+    const end   = all? "" : ($("#e_end").value||"");
+    const members = readEditorMembers(); // can be []
+    const recurOn = $("#e_recur_on").checked;
+    const recur = recurOn ? {
+      enabled:true,
+      freq: $("#e_recur_freq").value,
+      start: $("#e_recur_start").value || date,
+      end:   $("#e_recur_end").value   || date
+    } : {enabled:false};
+    return { title, members, date, start, end, allDay: all, notes: $("#e_notes").value.trim(), recur };
+  }
+
   function selectEvent(id){
-    const r = ALL.find(x=>x.id===id); if(!r) return;
-    SEL=id; fillForm(r);
+    const ev = ALL.find(x=>x.id===id); if(!ev) return;
+    SEL=id; fillForm(ev);
   }
 </script>
 </body></html>
