@@ -23,7 +23,6 @@ th{color:var(--muted)}
 .step.current{outline:2px solid var(--hi)}
 .bar{position:relative;height:10px;border:1px solid var(--line);border-radius:999px;background:#0e1430;overflow:hidden}
 .fill{position:absolute;left:0;top:0;height:100%}
-.tag{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
 .gridHead{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:center}
 </style>
 </head>
@@ -79,8 +78,8 @@ th{color:var(--muted)}
       </select>
     </div>
     <div>
-      <label>Month</label>
-      <input id="month" type="month">
+      <label>Year (by Period End)</label>
+      <select id="year"><option value="">All</option></select>
     </div>
     <div><span id="count" class="badge">0</span></div>
     <div style="text-align:right"><span class="muted">Progress = step / 11</span></div>
@@ -140,37 +139,42 @@ th{color:var(--muted)}
   function progressPct(stepIndex,closed){ if(closed) return 100; const p=Math.round((Math.max(0,stepIndex)/LAST_IDX)*100); return Math.min(100,Math.max(0,p)); }
   function barColor(p){ if(p<33) return "#d69e2e"; if(p<66) return "#3182ce"; if(p<100) return "#7c3aed"; return "#38a169"; }
   function esc(s){ return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m])); }
+  function show(m){ const e=document.getElementById("err"); e.textContent=m||""; e.style.display=m?"block":"none"; }
 
   // load
   async function load(){
     const snap = await getDocs(query(collection(db,"eads_evals"), orderBy("member")));
     ROWS = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    // default month filter to current month
-    const now=new Date(); $("#month").value = now.getFullYear()+"-"+pad(now.getMonth()+1);
+
+    // build year filter from Period End years
+    const yrs = Array.from(new Set(ROWS.map(r=> String(r.end||"").slice(0,4)).filter(Boolean))).sort((a,b)=>b.localeCompare(a));
+    const ysel = document.getElementById("year");
+    ysel.innerHTML = '<option value="">All</option>' + yrs.map(y=>`<option value="${y}">${y}</option>`).join('');
+    const nowY = String(new Date().getFullYear());
+    if(yrs.includes(nowY)) ysel.value = nowY;
+
     render();
   }
 
   // render list
   function render(){
-    const q = ($("#search").value||"").toLowerCase();
-    const f = $("#filter").value;
-    const mo = $("#month").value; // YYYY-MM
+    const q = (document.getElementById("search").value||"").toLowerCase();
+    const f = document.getElementById("filter").value;
+    const yr = document.getElementById("year").value;
+
     let rows = ROWS
       .filter(r=> !q || (String(r.member||"").toLowerCase()+" "+String(r.note||"").toLowerCase()).includes(q))
       .filter(r=> f==="" || (f==="open" ? !r.closed : !!r.closed))
-      .filter(r=> !mo || String(r.end||"").slice(0,7)===mo);
+      .filter(r=> !yr || String(r.end||"").slice(0,4)===yr)
+      .map(r=>{
+        const stepIdx = r.stepIndex||0;
+        const status = r.closed ? "Closed" : (STEP_NAMES[stepIdx]||"—");
+        const pct = progressPct(stepIdx,r.closed);
+        const suspense = addDaysStr(r.end||"",45);
+        return {...r, _status:status, _pct:pct, _suspense:suspense};
+      });
 
-    // enrich
-    rows = rows.map(r=>{
-      const stepIdx = r.stepIndex||0;
-      const status = r.closed ? "Closed" : (STEP_NAMES[stepIdx]||"—");
-      const pct = progressPct(stepIdx,r.closed);
-      const suspense = addDaysStr(r.end||"",45);
-      return {...r, _status:status, _pct:pct, _suspense:suspense};
-    });
-
-    // sort
-    const sort = $("#sort").value;
+    const sort = document.getElementById("sort").value;
     rows.sort((a,b)=>{
       if(sort==="member") return String(a.member||"").localeCompare(String(b.member||""));
       if(sort==="progress_desc") return (b._pct - a._pct) || String(a.member||"").localeCompare(String(b.member||""));
@@ -180,9 +184,9 @@ th{color:var(--muted)}
       return 0;
     });
 
-    $("#count").textContent = rows.length+" result(s)";
+    document.getElementById("count").textContent = rows.length+" result(s)";
 
-    $("#tbl tbody").innerHTML = rows.map(r=>{
+    document.querySelector("#tbl tbody").innerHTML = rows.map(r=>{
       const barW = r._pct; const col = barColor(barW);
       return `<tr data-id="${r.id}">
         <td>${esc(r.member||"")}</td>
@@ -210,52 +214,54 @@ th{color:var(--muted)}
   function select(id){
     SEL=id;
     const r = ROWS.find(x=>x.id===id); if(!r) return;
-    $("#f_member").value=r.member||""; $("#f_note").value=r.note||"";
-    $("#f_start").value=r.start||"";   $("#f_end").value=r.end||"";
-    $("#update").disabled=false; $("#remove").disabled=false; $("#sel").textContent="Selected "+id;
+    document.getElementById("f_member").value=r.member||""; document.getElementById("f_note").value=r.note||"";
+    document.getElementById("f_start").value=r.start||"";   document.getElementById("f_end").value=r.end||"";
+    document.getElementById("update").disabled=false; document.getElementById("remove").disabled=false; document.getElementById("sel").textContent="Selected "+id;
   }
   function clearForm(){
-    ["#f_member","#f_note","#f_start","#f_end"].forEach(s=>$(s).value="");
-    $("#update").disabled=true; $("#remove").disabled=true; $("#sel").textContent=""; SEL=null;
+    ["f_member","f_note","f_start","f_end"].forEach(id=>document.getElementById(id).value="");
+    document.getElementById("update").disabled=true; document.getElementById("remove").disabled=true; document.getElementById("sel").textContent=""; SEL=null;
   }
 
   // CRUD header
   document.getElementById("save").onclick = async ()=>{
-  const member=$("#f_member").value.trim(), start=$("#f_start").value, end=$("#f_end").value;
-  if(!member){ show("Member is required"); return; }
-  if(!start||!end){ show("Start and End dates are required"); return; }
-  try{
-    $("#save").disabled=true;
-    await addDoc(collection(db,"eads_evals"), {
-      member, note: $("#f_note").value.trim(), start, end,
-      stepIndex: 0, steps: STEP_NAMES, stepsDone: {}, closed:false, createdAt: serverTimestamp()
-    });
-    clearForm(); await load();
-  }catch(e){
-    console.error("SAVE_EVALS", e);
-    show(e.code ? `${e.code}: ${e.message}` : (e.message||String(e)));
-  }finally{ $("#save").disabled=false; }
-};
+    const member=document.getElementById("f_member").value.trim(), start=document.getElementById("f_start").value, end=document.getElementById("f_end").value;
+    if(!member){ show("Member is required"); return; }
+    if(!start||!end){ show("Start and End dates are required"); return; }
+    try{
+      document.getElementById("save").disabled=true;
+      await addDoc(collection(db,"eads_evals"), {
+        member, note: document.getElementById("f_note").value.trim(), start, end,
+        stepIndex: 0, steps: STEP_NAMES, stepsDone: {}, closed:false, createdAt: serverTimestamp()
+      });
+      clearForm(); await load();
+    }catch(e){
+      console.error("SAVE_EVALS", e);
+      show(e.code ? `${e.code}: ${e.message}` : (e.message||String(e)));
+    }finally{
+      document.getElementById("save").disabled=false;
+    }
+  };
   document.getElementById("update").onclick = async ()=>{
     if(!SEL) return;
     try{
-      $("#update").disabled=true;
+      document.getElementById("update").disabled=true;
       await updateDoc(doc(db,"eads_evals",SEL), {
-        member: $("#f_member").value.trim(),
-        note: $("#f_note").value.trim(),
-        start: $("#f_start").value,
-        end: $("#f_end").value
+        member: document.getElementById("f_member").value.trim(),
+        note: document.getElementById("f_note").value.trim(),
+        start: document.getElementById("f_start").value,
+        end: document.getElementById("f_end").value
       });
       clearForm(); await load();
-    }catch(e){ show(e.message||String(e)); } finally { $("#update").disabled=false; }
+    }catch(e){ show(e.message||String(e)); } finally { document.getElementById("update").disabled=false; }
   };
   document.getElementById("remove").onclick = async ()=>{
     if(!SEL) return; if(!confirm("Delete this evaluation?")) return;
     try{
-      $("#remove").disabled=true;
+      document.getElementById("remove").disabled=true;
       await deleteDoc(doc(db,"eads_evals",SEL));
-      clearForm(); $("#detail").style.display="none"; await load();
-    }catch(e){ show(e.message||String(e)); } finally { $("#remove").disabled=false; }
+      clearForm(); document.getElementById("detail").style.display="none"; await load();
+    }catch(e){ show(e.message||String(e)); } finally { document.getElementById("remove").disabled=false; }
   };
 
   // detail
@@ -263,61 +269,54 @@ th{color:var(--muted)}
     SEL=id;
     const r = ROWS.find(x=>x.id===id) || (await getDoc(doc(db,"eads_evals",id))).data();
     r.id=id;
-    $("#d_title").textContent = "Steps · "+(r.member||"")+" · "+(r.start||"")+" → "+(r.end||"");
-    // progress + suspense
+    document.getElementById("d_title").textContent = "Steps · "+(r.member||"")+" · "+(r.start||"")+" → "+(r.end||"");
     const pct = progressPct(r.stepIndex||0, r.closed);
-    $("#d_fill").style.width = pct+"%";
-    $("#d_fill").style.background = barColor(pct);
-    $("#d_prog").textContent = pct+"%";
-    $("#d_suspense").textContent = "Suspense "+(addDaysStr(r.end||"",45)||"—");
+    document.getElementById("d_fill").style.width = pct+"%";
+    document.getElementById("d_fill").style.background = barColor(pct);
+    document.getElementById("d_prog").textContent = pct+"%";
+    document.getElementById("d_suspense").textContent = "Suspense "+(addDaysStr(r.end||"",45)||"—");
     renderSteps(r);
-    $("#detail").style.display="block";
+    document.getElementById("detail").style.display="block";
   }
 
   function renderSteps(rec){
     const cur = rec.stepIndex||0;
     const done = rec.stepsDone||{};
-    const container=$("#steps"); container.innerHTML="";
+    const container=document.getElementById("steps"); container.innerHTML="";
     STEP_NAMES.forEach((name,i)=>{
       const row=document.createElement("div"); row.className="step"+(i===cur && !rec.closed?" current":"");
-      // left label
-      const left=document.createElement("div");
       const when = tsToISO(done[i]);
+      const left=document.createElement("div");
       left.innerHTML = `<div>${i+1}. ${name}</div><div class="muted">${when?("Done "+when):(i===cur&&!rec.closed?"Current":"")}</div>`;
-      // date input
       const dateWrap=document.createElement("div");
       dateWrap.innerHTML = `<input type="date" value="${when||""}" id="dt_${i}">`;
-      // buttons
       const btns=document.createElement("div"); btns.className="kit";
       btns.innerHTML = `
         <button class="btn" data-set="${i}">Set current</button>
         <button class="btn" data-save="${i}">Save date</button>
         ${when? `<button class="btn" data-clear="${i}">Clear date</button>`:''}
       `;
-      // spacer shows quick progress bar per step
       const mini=document.createElement("div");
       mini.innerHTML = `<div class="bar"><div class="fill" style="width:${(i/LAST_IDX)*100}%;background:#2b6cb0"></div></div>`;
       row.append(left,dateWrap,btns,mini);
       container.appendChild(row);
     });
 
-    // wire buttons
     container.querySelectorAll('button[data-set]').forEach(b=> b.onclick=()=> setCurrent(rec.id, Number(b.dataset.set)));
     container.querySelectorAll('button[data-save]').forEach(b=> b.onclick=()=> saveStepDate(rec.id, Number(b.dataset.save)));
     container.querySelectorAll('button[data-clear]').forEach(b=> b.onclick=()=> clearStepDate(rec.id, Number(b.dataset.clear)));
 
-    // top actions
-    $("#btn_complete").disabled = rec.closed || (rec.stepIndex||0)>=LAST_IDX;
-    $("#btn_reopen").disabled   = (rec.stepIndex||0)<=0;
-    $("#btn_close").disabled    = !!rec.closed;
-    $("#btn_complete").onclick = ()=> completeCurrent(rec.id);
-    $("#btn_reopen").onclick   = ()=> reopenPrevious(rec.id);
-    $("#btn_close").onclick    = ()=> closeNow(rec.id);
+    document.getElementById("btn_complete").disabled = rec.closed || (rec.stepIndex||0)>=LAST_IDX;
+    document.getElementById("btn_reopen").disabled   = (rec.stepIndex||0)<=0;
+    document.getElementById("btn_close").disabled    = !!rec.closed;
+    document.getElementById("btn_complete").onclick = ()=> completeCurrent(rec.id);
+    document.getElementById("btn_reopen").onclick   = ()=> reopenPrevious(rec.id);
+    document.getElementById("btn_close").onclick    = ()=> closeNow(rec.id);
   }
 
-  // retro edit: set a specific step to an explicit date string, then recompute pointer
+  // retro edit dates
   async function saveStepDate(id, idx){
-    const v = $("#dt_"+idx).value;
+    const v = document.getElementById("dt_"+idx).value;
     if(!v){ show("Pick a date first"); return; }
     try{
       const patch = {}; patch["stepsDone."+idx] = v;
@@ -326,7 +325,6 @@ th{color:var(--muted)}
       await load(); openDetail(id);
     }catch(e){ show(e.message||String(e)); }
   }
-
   async function clearStepDate(id, idx){
     try{
       const patch = {}; patch["stepsDone."+idx] = null;
@@ -335,30 +333,26 @@ th{color:var(--muted)}
       await load(); openDetail(id);
     }catch(e){ show(e.message||String(e)); }
   }
-
   async function setCurrent(id, idx){
     try{
       const patch = { stepIndex: idx, closed:false };
-      // clear future done marks
       for(let i=idx;i<=LAST_IDX;i++) patch["stepsDone."+i] = null;
       await updateDoc(doc(db,"eads_evals",id), patch);
       await load(); openDetail(id);
     }catch(e){ show(e.message||String(e)); }
   }
-
   async function completeCurrent(id){
     try{
       const r = ROWS.find(x=>x.id===id) || {};
       const idx = r.stepIndex||0;
       const patch = {};
-      patch["stepsDone."+idx] = serverTimestamp(); // allowed in map
+      patch["stepsDone."+idx] = serverTimestamp();
       patch.stepIndex = Math.min(idx+1, LAST_IDX);
       patch.closed = (idx===LAST_IDX);
       await updateDoc(doc(db,"eads_evals",id), patch);
       await load(); openDetail(id);
     }catch(e){ show(e.message||String(e)); }
   }
-
   async function reopenPrevious(id){
     try{
       const r = ROWS.find(x=>x.id===id) || {};
@@ -369,7 +363,6 @@ th{color:var(--muted)}
       await load(); openDetail(id);
     }catch(e){ show(e.message||String(e)); }
   }
-
   async function closeNow(id){
     try{
       const patch = {}; patch["stepsDone."+LAST_IDX] = serverTimestamp();
@@ -378,8 +371,6 @@ th{color:var(--muted)}
       await load(); openDetail(id);
     }catch(e){ show(e.message||String(e)); }
   }
-
-  // recompute pointer: set to first step without a date; if all dated -> closed
   async function recomputePointer(id){
     const snap = await getDoc(doc(db,"eads_evals",id));
     const r = snap.data()||{};
@@ -391,12 +382,10 @@ th{color:var(--muted)}
   }
 
   // events
-  $("#search").oninput = render;
-  $("#filter").oninput = render;
-  $("#sort").oninput   = render;
-  $("#month").oninput  = render;
-
-  function show(m){ const e=$("#err"); e.textContent=m||""; e.style.display=m?"block":"none"; }
+  document.getElementById("search").oninput = render;
+  document.getElementById("filter").oninput = render;
+  document.getElementById("sort").oninput   = render;
+  document.getElementById("year").oninput   = render;
 
   load();
 </script>
