@@ -73,8 +73,8 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
   <h3 style="margin:0 0 8px 0">Event Editor</h3>
   <div class="row2">
     <div><label>Title</label><input id="e_title" placeholder="e.g., UTA, Cyber Range, Staff Mtg"></div>
-    <div><label>Date</label><input id="e_date" type="date"></div>
-    <div><label>All Day?</label><select id="e_all"><option value="yes">Yes</option><option value="no" selected>No</option></select></div>
+    <div><label>Start Date</label><input id="e_date" type="date"></div>
+    <div><label>End Date</label><input id="e_date_end" type="date"></div>
     <div><label>Category</label>
       <select id="e_cat">
         <option>Drill Weekend</option><option>Cyber</option><option>Training</option>
@@ -84,9 +84,10 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
   </div>
 
   <div class="row2" style="margin-top:10px">
+    <div><label>All Day?</label><select id="e_all"><option value="yes">Yes</option><option value="no" selected>No</option></select></div>
     <div><label>Start Time</label><input id="e_start" type="time"></div>
     <div><label>End Time</label><input id="e_end" type="time"></div>
-    <div style="grid-column:span 2">
+    <div style="grid-column:span 1">
       <label>Color</label>
       <div class="colorchips" id="colors"></div>
       <input id="e_color" type="color" value="#2b6cb0" style="margin-top:8px">
@@ -126,7 +127,7 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
 <div class="card">
   <h3 style="margin:0 0 8px 0">Events in Range</h3>
   <table class="table">
-    <thead><tr><th>Date</th><th>Time</th><th>Category</th><th>Title</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Start</th><th>End</th><th>Time</th><th>Category</th><th>Title</th><th>Notes</th></tr></thead>
     <tbody id="tbl"></tbody>
   </table>
 </div>
@@ -158,15 +159,38 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
   function startOfWeek(d){ const x=new Date(d); x.setDate(d.getDate()-d.getDay()); x.setHours(0,0,0,0); return x; }
   function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x; }
   function toDate(v){ if(!v) return null; if(typeof v==="string") return new Date(v+"T12:00:00"); if(v.seconds) return new Date(v.seconds*1000); return v; }
+  function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+  function daysDiff(a,b){ return Math.floor((toDate(b)-toDate(a))/(1000*3600*24)); }
   function timeRange(e){ return e.allDay? "All day" : ((e.start||"")+(e.end? "–"+e.end:"")); }
   function within(d,a,b){ const t=d.getTime(); return t>=a.getTime() && t<=b.getTime(); }
   function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));}
 
-  // recurrence expander (yearly fix applied)
+  // recurrence + duration
   function expandOccurrences(ev, a, b){
     const base = toDate(ev.date);
-    if(!ev.recur || !ev.recur.enabled){ if(!base || !within(base,a,b)) return []; return [{...ev, occDateISO: ev.date, id: ev.id}]; }
+    const baseEnd = toDate(ev.dateEnd||ev.date);
+    const dur = Math.max(0, daysDiff(ev.date, (ev.dateEnd||ev.date))) + 1; // days inclusive
 
+    // function to push daily spans for a single start date di
+    function pushSpan(di,out){
+      for(let k=0;k<dur;k++){
+        const d = addDays(new Date(di+"T12:00:00"), k);
+        if(within(d,a,b)){
+          const di2 = iso(d);
+          out.push({...ev, id: ev.id+"@"+di+"#"+k, occDateISO: di2, occStartISO: di, occEndISO: iso(addDays(toDate(di), dur-1))});
+        }
+      }
+    }
+
+    if(!ev.recur || !ev.recur.enabled){
+      const out=[]; if(!base) return out;
+      const start = toDate(ev.date), end = toDate(ev.dateEnd||ev.date);
+      // any overlap with [a,b]?
+      if(!(end < a || start > b)) pushSpan(ev.date, out);
+      return out;
+    }
+
+    // recurring
     const freq = String(ev.recur.freq||"monthly");
     const rs = toDate(ev.recur.start || ev.date) || base;
     const re = toDate(ev.recur.end   || ev.date) || base;
@@ -175,7 +199,6 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
     const end   = new Date(Math.min(b.getTime(), re.getTime()));
     if(end < start) return [];
 
-    const addDays=(d,n)=>{const x=new Date(d); x.setDate(x.getDate()+n); return x;};
     const addMonths=(d,n)=>{const x=new Date(d); x.setMonth(x.getMonth()+n); return x;};
     const addYears=(d,n)=>{const x=new Date(d); x.setFullYear(x.getFullYear()+n); return x;};
 
@@ -185,7 +208,7 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
       d=new Date(start); const diff=(baseW - d.getDay() + 7)%7; d=addDays(d,diff);
     }else if(freq==="yearly"){
       let y=start.getFullYear(); d=new Date(y, baseM, baseD); if(d<start) d=new Date(y+1, baseM, baseD);
-    }else{ // monthly-like
+    }else{
       const y=start.getFullYear(), m=start.getMonth(); d=new Date(y, m, baseD); if(d<start) d=addMonths(d,1);
     }
     const step=(cur)=> freq==="weekly"?addDays(cur,7)
@@ -198,8 +221,8 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
     const out=[];
     while(d<=end){
       const di = iso(d);
-      const od = new Date(di+"T12:00:00");
-      if(within(od,a,b)) out.push({...ev, id: ev.id+"@"+di, occDateISO: di});
+      // expanded span
+      pushSpan(di,out);
       d = step(d);
     }
     return out;
@@ -244,7 +267,7 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
     $("#next").onclick=()=>{ if($("#view").value==="month"){ cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);} else { cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+7);} renderAll(); };
 
     $("#save").onclick=onSave; $("#update").onclick=onUpdate; $("#remove").onclick=onDelete;
-    $("#e_date").value=iso(new Date()); toggleRecurInputs();
+    const today=iso(new Date()); $("#e_date").value=today; $("#e_date_end").value=today; toggleRecurInputs();
 
     await load();
   }
@@ -270,6 +293,7 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
         title:x.title||"", notes:x.notes||"", category:x.category||"Other",
         color:x.color||"#2b6cb0",
         date: typeof x.date==="string"? x.date : (x.date?.seconds? new Date(x.date.seconds*1000).toISOString().slice(0,10) : ""),
+        dateEnd: typeof x.dateEnd==="string"? x.dateEnd : (x.dateEnd?.seconds? new Date(x.dateEnd.seconds*1000).toISOString().slice(0,10) : ""),
         start:x.start||"", end:x.end||"", allDay:!!x.allDay,
         recur: x.recur || {enabled:false}
       };
@@ -299,7 +323,9 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
       const dayISO=iso(day);
       occs.filter(e=>e.occDateISO===dayISO).forEach(e=>{
         const el=document.createElement("div"); el.className="ev";
-        el.innerHTML = `<span class="dot" style="background:${e.color||'#2b6cb0'}"></span><div>${esc(e.title)} <span class="badge" style="border-color:${e.color||'#2b6cb0'}">${esc(e.category||'')}</span></div>`;
+        // show span on first day
+        const span = (e.occDateISO===e.occStartISO && e.occEndISO && e.occStartISO!==e.occEndISO) ? ` <span class="badge">${e.occStartISO} → ${e.occEndISO}</span>` : "";
+        el.innerHTML = `<span class="dot" style="background:${e.color||'#2b6cb0'}"></span><div>${esc(e.title)} <span class="badge" style="border-color:${e.color||'#2b6cb0'}">${esc(e.category||'')}</span>${span}</div>`;
         el.onclick=()=> selectEvent(e.id.split("@")[0]);
         cell.appendChild(el);
       });
@@ -322,9 +348,10 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
       box.onclick=()=> prefillDate(iso(d));
       const slot=box.querySelector(".slot"); const dayISO=iso(d);
       const evs = occs.filter(e=>e.occDateISO===dayISO);
-      slot.innerHTML = evs.length? evs.map(e=>
-        `<div class="ev" data-id="${e.id}"><span class="dot" style="background:${e.color||'#2b6cb0'}"></span><div>${esc(e.title)} · <span class="badge" style="border-color:${e.color||'#2b6cb0'}">${esc(e.category||'')}</span> <span class="badge">${esc(timeRange(e))}</span></div></div>`
-      ).join("") : '<div class="d">No events</div>';
+      slot.innerHTML = evs.length? evs.map(e=>{
+        const span = (e.occDateISO===e.occStartISO && e.occEndISO && e.occStartISO!==e.occEndISO) ? ` <span class="badge">${e.occStartISO} → ${e.occEndISO}</span>` : "";
+        return `<div class="ev" data-id="${e.id}"><span class="dot" style="background:${e.color||'#2b6cb0'}"></span><div>${esc(e.title)} · <span class="badge" style="border-color:${e.color||'#2b6cb0'}">${esc(e.category||'')}</span> <span class="badge">${esc(timeRange(e))}</span>${span}</div></div>`;
+      }).join("") : '<div class="d">No events</div>';
       wrap.appendChild(box);
       box.querySelectorAll(".ev").forEach(n=> n.onclick=(evt)=>{ evt.stopPropagation(); selectEvent(n.dataset.id.split("@")[0]); });
     }
@@ -334,20 +361,23 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
   // list
   function renderList(){
     const rows=filtered();
-    $("#tbl").innerHTML = rows.map(r=>{
-      return `<tr data-id="${r.id}">
-        <td>${r.occDateISO||""}</td><td>${esc(timeRange(r))}</td>
-        <td><span class="badge" style="border-color:${r.color||'#2b6cb0'}">${esc(r.category||"")}</span></td>
-        <td>${esc(r.title||"")}</td><td>${esc(r.notes||"")}</td>
-      </tr>`;
-    }).join("");
+    $("#tbl").innerHTML = rows
+      .filter((r,i,arr)=> r.id.endsWith("#0") || !r.id.includes("#")) /* one row per span */
+      .map(r=>{
+        const start=r.occStartISO||r.occDateISO, end=r.occEndISO||r.occDateISO;
+        return `<tr data-id="${r.id}">
+          <td>${start||""}</td><td>${end||""}</td><td>${esc(timeRange(r))}</td>
+          <td><span class="badge" style="border-color:${r.color||'#2b6cb0'}">${esc(r.category||"")}</span></td>
+          <td>${esc(r.title||"")}</td><td>${esc(r.notes||"")}</td>
+        </tr>`;
+      }).join("");
     document.querySelectorAll("#tbl tr").forEach(tr=> tr.onclick=()=> selectEvent(tr.dataset.id.split("@")[0]));
   }
 
   // editor helpers
-  function prefillDate(dISO){ $("#e_date").value=dISO; $("#e_title").focus(); }
+  function prefillDate(dISO){ $("#e_date").value=dISO; $("#e_date_end").value=dISO; $("#e_title").focus(); }
   function clearEditor(){
-    SEL=null; $("#e_title").value=""; $("#e_date").value=iso(new Date()); $("#e_all").value="no";
+    SEL=null; const t=iso(new Date()); $("#e_title").value=""; $("#e_date").value=t; $("#e_date_end").value=t; $("#e_all").value="no";
     $("#e_start").value=""; $("#e_end").value=""; $("#e_cat").value="Drill Weekend";
     $("#e_color").value="#2b6cb0"; $("#e_notes").value="";
     $("#e_recur_on").checked=false; $("#e_recur_freq").value="monthly"; $("#e_recur_start").value=""; $("#e_recur_end").value="";
@@ -355,7 +385,9 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
     $("#update").disabled=true; $("#remove").disabled=true; $("#sel").textContent="none"; renderChipsSel();
   }
   function fillForm(e){
-    $("#e_title").value=e.title||""; $("#e_date").value=e.date||iso(new Date());
+    $("#e_title").value=e.title||"";
+    $("#e_date").value=e.date||iso(new Date());
+    $("#e_date_end").value=e.dateEnd||e.date||$("#e_date").value;
     $("#e_all").value=e.allDay? "yes":"no"; $("#e_start").value=e.start||""; $("#e_end").value=e.end||"";
     $("#e_cat").value=e.category||"Other"; $("#e_color").value=e.color||"#2b6cb0"; $("#e_notes").value=e.notes||"";
     $("#e_recur_on").checked=!!(e.recur&&e.recur.enabled);
@@ -367,7 +399,9 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
   }
   function readForm(){
     const title=$("#e_title").value.trim(); if(!title){ showErr("Title required"); return null; }
-    const date=$("#e_date").value; if(!date){ showErr("Date required"); return null; }
+    const date=$("#e_date").value; if(!date){ showErr("Start date required"); return null; }
+    const dateEnd=$("#e_date_end").value||date;
+    if(toDate(dateEnd) < toDate(date)){ showErr("End date must be ≥ start date"); return null; }
     const all=$("#e_all").value==="yes";
     const start=all?"":($("#e_start").value||"");
     const end=all?"":($("#e_end").value||"");
@@ -378,7 +412,7 @@ input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);borde
       start: $("#e_recur_start").value || date,
       end:   $("#e_recur_end").value   || date
     } : {enabled:false};
-    return { title, date, start, end, allDay: all, category: $("#e_cat").value, color: $("#e_color").value, notes: $("#e_notes").value.trim(), recur };
+    return { title, date, dateEnd, start, end, allDay: all, category: $("#e_cat").value, color: $("#e_color").value, notes: $("#e_notes").value.trim(), recur };
   }
   function showErr(t){ const e=$("#err"); e.textContent=t; e.style.display=t?"block":"none"; }
 
