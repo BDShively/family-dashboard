@@ -1,0 +1,406 @@
+<!-- /family-dashboard/eads/tracker/calendar.html -->
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EADS · Calendar</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--hi:#2b6cb0}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:var(--bg);color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.btn[disabled]{opacity:.6;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+label{font-size:12px;color:var(--muted)}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+.hdr{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.cell{min-height:110px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px;position:relative}
+.cell:nth-child(7n){border-right:none}.cell .d{font-size:12px;color:var(--muted)}.cell.today{outline:2px solid var(--hi)}
+.ev{margin-top:4px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:#0e1430;font-size:12px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.dot{width:10px;height:10px;border-radius:50%}
+.weekwrap{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.daybox{border:1px solid var(--line);border-radius:12px;padding:8px}
+.daybox h4{margin:0 0 6px 0;font-size:13px;color:var(--muted)}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:6px 8px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
+.row2{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:1000px){.row2{grid-template-columns:1fr 1fr}}
+.alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
+.colorchips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{width:22px;height:22px;border-radius:50%;border:2px solid #0000;cursor:pointer}
+.chip.sel{outline:2px solid var(--hi)}
+</style>
+</head>
+<body>
+<header>
+  <div class="hdr">
+    <a class="btn" href="/family-dashboard/eads/tracker/index.html">&larr; EADS Tracker</a>
+    <span class="badge">EADS Calendar</span>
+  </div>
+  <div id="auth"></div>
+</header>
+
+<div id="err" class="alert"></div>
+
+<!-- Controls -->
+<div class="card">
+  <div class="hdr">
+    <button class="btn" id="prev">&larr;</button>
+    <div id="rangeLbl" class="badge">—</div>
+    <button class="btn" id="next">&rarr;</button>
+    <select id="view" class="btn" style="background:#0f1330">
+      <option value="month">Month</option>
+      <option value="week">Week</option>
+    </select>
+    <select id="fltCat" class="btn" style="background:#0f1330">
+      <option value="">All Categories</option>
+      <option>Drill Weekend</option><option>Cyber</option><option>Training</option>
+      <option>Meeting</option><option>Admin</option><option>Other</option>
+    </select>
+    <span id="count" class="badge">0 events</span>
+  </div>
+</div>
+
+<!-- Month -->
+<div id="monthView" class="card" style="display:block"><div class="grid" id="monthGrid"></div></div>
+<!-- Week -->
+<div id="weekView" class="card" style="display:none"><div class="weekwrap" id="weekWrap"></div></div>
+
+<!-- Editor -->
+<div class="card">
+  <h3 style="margin:0 0 8px 0">Event Editor</h3>
+  <div class="row2">
+    <div><label>Title</label><input id="e_title" placeholder="e.g., UTA, Cyber Range, Staff Mtg"></div>
+    <div><label>Date</label><input id="e_date" type="date"></div>
+    <div><label>All Day?</label><select id="e_all"><option value="yes">Yes</option><option value="no" selected>No</option></select></div>
+    <div><label>Category</label>
+      <select id="e_cat">
+        <option>Drill Weekend</option><option>Cyber</option><option>Training</option>
+        <option>Meeting</option><option>Admin</option><option>Other</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row2" style="margin-top:10px">
+    <div><label>Start Time</label><input id="e_start" type="time"></div>
+    <div><label>End Time</label><input id="e_end" type="time"></div>
+    <div style="grid-column:span 2">
+      <label>Color</label>
+      <div class="colorchips" id="colors"></div>
+      <input id="e_color" type="color" value="#2b6cb0" style="margin-top:8px">
+    </div>
+  </div>
+
+  <!-- Recurrence -->
+  <div class="row2" style="margin-top:10px">
+    <div><label>Recurring?</label>
+      <div style="display:flex;align-items:center;gap:8px"><input id="e_recur_on" type="checkbox"><span class="badge">Enable</span></div>
+    </div>
+    <div>
+      <label>Frequency</label>
+      <select id="e_recur_freq">
+        <option value="monthly">Monthly</option>
+        <option value="bimonthly">Bimonthly</option>
+        <option value="quarterly">Quarterly</option>
+        <option value="weekly">Weekly</option>
+        <option value="biweekly">Biweekly</option>
+        <option value="yearly">Yearly</option>
+      </select>
+    </div>
+    <div><label>Repeat Start</label><input id="e_recur_start" type="date"></div>
+    <div><label>Repeat End</label><input id="e_recur_end" type="date"></div>
+  </div>
+
+  <div style="margin-top:10px"><label>Notes</label><input id="e_notes" placeholder="location, POC, prep"></div>
+  <div class="hdr" style="margin-top:10px">
+    <button class="btn" id="save">Save</button>
+    <button class="btn" id="update" disabled>Update</button>
+    <button class="btn" id="remove" disabled>Delete</button>
+    <span id="sel" class="badge">none</span>
+  </div>
+</div>
+
+<!-- List -->
+<div class="card">
+  <h3 style="margin:0 0 8px 0">Events in Range</h3>
+  <table class="table">
+    <thead><tr><th>Date</th><th>Time</th><th>Category</th><th>Title</th><th>Notes</th></tr></thead>
+    <tbody id="tbl"></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+  import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  const LOGIN="/family-dashboard/main/index.html";
+  const COLORS=["#2b6cb0","#38a169","#d69e2e","#e53e3e","#7c3aed","#319795","#718096"];
+
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
+    const c=document.getElementById("auth");
+    c.innerHTML='<span class="badge">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
+    document.getElementById("signout").onclick=(e)=>{e.preventDefault();signOutUser();};
+    init();
+  });
+
+  // state
+  let ALL=[], SEL=null;
+  let cur = startOfMonth(new Date());
+
+  // utils
+  const $=(s)=>document.querySelector(s);
+  const pad=(n)=>String(n).padStart(2,"0");
+  const iso=(d)=> d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+  function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+  function startOfWeek(d){ const x=new Date(d); x.setDate(d.getDate()-d.getDay()); x.setHours(0,0,0,0); return x; }
+  function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x; }
+  function toDate(v){ if(!v) return null; if(typeof v==="string") return new Date(v+"T12:00:00"); if(v.seconds) return new Date(v.seconds*1000); return v; }
+  function timeRange(e){ return e.allDay? "All day" : ((e.start||"")+(e.end? "–"+e.end:"")); }
+  function within(d,a,b){ const t=d.getTime(); return t>=a.getTime() && t<=b.getTime(); }
+  function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));}
+
+  // recurrence expander (yearly fix applied)
+  function expandOccurrences(ev, a, b){
+    const base = toDate(ev.date);
+    if(!ev.recur || !ev.recur.enabled){ if(!base || !within(base,a,b)) return []; return [{...ev, occDateISO: ev.date, id: ev.id}]; }
+
+    const freq = String(ev.recur.freq||"monthly");
+    const rs = toDate(ev.recur.start || ev.date) || base;
+    const re = toDate(ev.recur.end   || ev.date) || base;
+
+    const start = new Date(Math.max(a.getTime(), rs.getTime()));
+    const end   = new Date(Math.min(b.getTime(), re.getTime()));
+    if(end < start) return [];
+
+    const addDays=(d,n)=>{const x=new Date(d); x.setDate(x.getDate()+n); return x;};
+    const addMonths=(d,n)=>{const x=new Date(d); x.setMonth(x.getMonth()+n); return x;};
+    const addYears=(d,n)=>{const x=new Date(d); x.setFullYear(x.getFullYear()+n); return x;};
+
+    const baseD=base.getDate(), baseM=base.getMonth(), baseW=base.getDay();
+    let d;
+    if(freq==="weekly"||freq==="biweekly"){
+      d=new Date(start); const diff=(baseW - d.getDay() + 7)%7; d=addDays(d,diff);
+    }else if(freq==="yearly"){
+      let y=start.getFullYear(); d=new Date(y, baseM, baseD); if(d<start) d=new Date(y+1, baseM, baseD);
+    }else{ // monthly-like
+      const y=start.getFullYear(), m=start.getMonth(); d=new Date(y, m, baseD); if(d<start) d=addMonths(d,1);
+    }
+    const step=(cur)=> freq==="weekly"?addDays(cur,7)
+                      : freq==="biweekly"?addDays(cur,14)
+                      : freq==="bimonthly"?addMonths(cur,2)
+                      : freq==="quarterly"?addMonths(cur,3)
+                      : freq==="yearly"?addYears(cur,1)
+                      : addMonths(cur,1);
+
+    const out=[];
+    while(d<=end){
+      const di = iso(d);
+      const od = new Date(di+"T12:00:00");
+      if(within(od,a,b)) out.push({...ev, id: ev.id+"@"+di, occDateISO: di});
+      d = step(d);
+    }
+    return out;
+  }
+
+  // color chip UI
+  function colorChips(){
+    const wrap=$("#colors"); wrap.innerHTML="";
+    COLORS.forEach(c=>{
+      const d=document.createElement("div");
+      d.className="chip"; d.style.background=c;
+      d.onclick=()=>{ $("#e_color").value=c; renderChipsSel(); };
+      wrap.appendChild(d);
+    });
+    renderChipsSel();
+  }
+  function renderChipsSel(){
+    const val=$("#e_color").value.toLowerCase();
+    document.querySelectorAll(".chip").forEach(ch=>{
+      ch.classList.toggle("sel", ch.style.background.toLowerCase()===val);
+    });
+  }
+
+  // range + filter
+  function rangeBounds(){ return ($("#view").value==="month") ? [startOfWeek(startOfMonth(cur)), endOfWeek(endOfMonth(cur))] : [startOfWeek(cur), endOfWeek(cur)]; }
+  function filtered(){
+    const [a,b]=rangeBounds(); const cat=$("#fltCat").value;
+    const occs=[];
+    ALL.forEach(ev=>{
+      const arr = expandOccurrences(ev,a,b);
+      arr.forEach(x=>{ if(!cat || x.category===cat) occs.push(x); });
+    });
+    occs.sort((x,y)=> (x.occDateISO||"").localeCompare(y.occDateISO||"") || (x.start||"").localeCompare(y.start||""));
+    return occs;
+  }
+
+  async function init(){
+    colorChips();
+    $("#e_recur_on").oninput=toggleRecurInputs;
+    $("#view").oninput=renderAll; $("#fltCat").oninput=renderAll;
+    $("#prev").onclick=()=>{ if($("#view").value==="month"){ cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);} else { cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()-7);} renderAll(); };
+    $("#next").onclick=()=>{ if($("#view").value==="month"){ cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);} else { cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+7);} renderAll(); };
+
+    $("#save").onclick=onSave; $("#update").onclick=onUpdate; $("#remove").onclick=onDelete;
+    $("#e_date").value=iso(new Date()); toggleRecurInputs();
+
+    await load();
+  }
+
+  function toggleRecurInputs(){
+    const on = $("#e_recur_on").checked;
+    ["#e_recur_freq","#e_recur_start","#e_recur_end"].forEach(id=> $(id).disabled=!on);
+    if(on){
+      if(!$("#e_recur_start").value) $("#e_recur_start").value = $("#e_date").value;
+      if(!$("#e_recur_end").value){
+        const d=new Date($("#e_recur_start").value+"T12:00:00"); d.setFullYear(d.getFullYear()+1);
+        $("#e_recur_end").value = d.toISOString().slice(0,10);
+      }
+    }
+  }
+
+  async function load(){
+    const snap = await getDocs(collection(db,"eads_events"));
+    ALL = snap.docs.map(d=>{
+      const x=d.data();
+      return {
+        id:d.id,
+        title:x.title||"", notes:x.notes||"", category:x.category||"Other",
+        color:x.color||"#2b6cb0",
+        date: typeof x.date==="string"? x.date : (x.date?.seconds? new Date(x.date.seconds*1000).toISOString().slice(0,10) : ""),
+        start:x.start||"", end:x.end||"", allDay:!!x.allDay,
+        recur: x.recur || {enabled:false}
+      };
+    });
+    renderAll();
+  }
+
+  function renderAll(){
+    if($("#view").value==="month"){ $("#monthView").style.display="block"; $("#weekView").style.display="none"; renderMonth(); }
+    else{ $("#monthView").style.display="none"; $("#weekView").style.display="block"; renderWeek(); }
+    renderList();
+  }
+
+  // month
+  function renderMonth(){
+    const grid=$("#monthGrid"); grid.innerHTML="";
+    const first = startOfMonth(cur), last=endOfMonth(cur), from=startOfWeek(first), to=endOfWeek(last);
+    $("#rangeLbl").textContent = first.toLocaleString(undefined,{month:"long",year:"numeric"});
+    const rows=[]; let d=new Date(from); while(d<=to){ rows.push(new Date(d)); d.setDate(d.getDate()+1); }
+    const todayISO = iso(new Date());
+    const occs = filtered();
+    rows.forEach(day=>{
+      const inMo = day.getMonth()===cur.getMonth();
+      const cell=document.createElement("div"); cell.className="cell"+(iso(day)===todayISO?" today":""); cell.style.opacity=inMo?1:0.45;
+      const label=document.createElement("div"); label.className="d"; label.textContent=day.toLocaleString(undefined,{weekday:"short"})+" · "+day.getDate();
+      cell.appendChild(label);
+      const dayISO=iso(day);
+      occs.filter(e=>e.occDateISO===dayISO).forEach(e=>{
+        const el=document.createElement("div"); el.className="ev";
+        el.innerHTML = `<span class="dot" style="background:${e.color||'#2b6cb0'}"></span><div>${esc(e.title)} <span class="badge" style="border-color:${e.color||'#2b6cb0'}">${esc(e.category||'')}</span></div>`;
+        el.onclick=()=> selectEvent(e.id.split("@")[0]);
+        cell.appendChild(el);
+      });
+      cell.onclick=(evt)=>{ if(evt.target===cell||evt.target===label){ prefillDate(iso(day)); } };
+      grid.appendChild(cell);
+    });
+    $("#count").textContent = occs.length+" events";
+  }
+
+  // week
+  function renderWeek(){
+    const start = startOfWeek(cur), end=endOfWeek(cur);
+    $("#rangeLbl").textContent = start.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" – "+end.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+    const wrap=$("#weekWrap"); wrap.innerHTML="";
+    const occs=filtered();
+    for(let i=0;i<7;i++){
+      const d=new Date(start); d.setDate(start.getDate()+i);
+      const box=document.createElement("div"); box.className="daybox";
+      box.innerHTML = `<h4>${d.toLocaleString(undefined,{weekday:"short"})} · ${d.getMonth()+1}/${d.getDate()}</h4><div class="slot"></div>`;
+      box.onclick=()=> prefillDate(iso(d));
+      const slot=box.querySelector(".slot"); const dayISO=iso(d);
+      const evs = occs.filter(e=>e.occDateISO===dayISO);
+      slot.innerHTML = evs.length? evs.map(e=>
+        `<div class="ev" data-id="${e.id}"><span class="dot" style="background:${e.color||'#2b6cb0'}"></span><div>${esc(e.title)} · <span class="badge" style="border-color:${e.color||'#2b6cb0'}">${esc(e.category||'')}</span> <span class="badge">${esc(timeRange(e))}</span></div></div>`
+      ).join("") : '<div class="d">No events</div>';
+      wrap.appendChild(box);
+      box.querySelectorAll(".ev").forEach(n=> n.onclick=(evt)=>{ evt.stopPropagation(); selectEvent(n.dataset.id.split("@")[0]); });
+    }
+    $("#count").textContent = occs.length+" events";
+  }
+
+  // list
+  function renderList(){
+    const rows=filtered();
+    $("#tbl").innerHTML = rows.map(r=>{
+      return `<tr data-id="${r.id}">
+        <td>${r.occDateISO||""}</td><td>${esc(timeRange(r))}</td>
+        <td><span class="badge" style="border-color:${r.color||'#2b6cb0'}">${esc(r.category||"")}</span></td>
+        <td>${esc(r.title||"")}</td><td>${esc(r.notes||"")}</td>
+      </tr>`;
+    }).join("");
+    document.querySelectorAll("#tbl tr").forEach(tr=> tr.onclick=()=> selectEvent(tr.dataset.id.split("@")[0]));
+  }
+
+  // editor helpers
+  function prefillDate(dISO){ $("#e_date").value=dISO; $("#e_title").focus(); }
+  function clearEditor(){
+    SEL=null; $("#e_title").value=""; $("#e_date").value=iso(new Date()); $("#e_all").value="no";
+    $("#e_start").value=""; $("#e_end").value=""; $("#e_cat").value="Drill Weekend";
+    $("#e_color").value="#2b6cb0"; $("#e_notes").value="";
+    $("#e_recur_on").checked=false; $("#e_recur_freq").value="monthly"; $("#e_recur_start").value=""; $("#e_recur_end").value="";
+    toggleRecurInputs();
+    $("#update").disabled=true; $("#remove").disabled=true; $("#sel").textContent="none"; renderChipsSel();
+  }
+  function fillForm(e){
+    $("#e_title").value=e.title||""; $("#e_date").value=e.date||iso(new Date());
+    $("#e_all").value=e.allDay? "yes":"no"; $("#e_start").value=e.start||""; $("#e_end").value=e.end||"";
+    $("#e_cat").value=e.category||"Other"; $("#e_color").value=e.color||"#2b6cb0"; $("#e_notes").value=e.notes||"";
+    $("#e_recur_on").checked=!!(e.recur&&e.recur.enabled);
+    $("#e_recur_freq").value=e.recur?.freq||"monthly";
+    $("#e_recur_start").value=e.recur?.start||e.date||"";
+    $("#e_recur_end").value=e.recur?.end||"";
+    toggleRecurInputs();
+    $("#update").disabled=false; $("#remove").disabled=false; $("#sel").textContent="Selected "+e.id; renderChipsSel();
+  }
+  function readForm(){
+    const title=$("#e_title").value.trim(); if(!title){ showErr("Title required"); return null; }
+    const date=$("#e_date").value; if(!date){ showErr("Date required"); return null; }
+    const all=$("#e_all").value==="yes";
+    const start=all?"":($("#e_start").value||"");
+    const end=all?"":($("#e_end").value||"");
+    const recurOn = $("#e_recur_on").checked;
+    const recur = recurOn ? {
+      enabled:true,
+      freq: $("#e_recur_freq").value,
+      start: $("#e_recur_start").value || date,
+      end:   $("#e_recur_end").value   || date
+    } : {enabled:false};
+    return { title, date, start, end, allDay: all, category: $("#e_cat").value, color: $("#e_color").value, notes: $("#e_notes").value.trim(), recur };
+  }
+  function showErr(t){ const e=$("#err"); e.textContent=t; e.style.display=t?"block":"none"; }
+
+  // CRUD
+  async function onSave(){
+    showErr(""); const rec=readForm(); if(!rec) return;
+    try{ $("#save").disabled=true; await addDoc(collection(db,"eads_events"), {...rec, createdAt: serverTimestamp()}); clearEditor(); await load(); }
+    catch(e){ showErr(e.message||String(e)); } finally { $("#save").disabled=false; }
+  }
+  async function onUpdate(){
+    if(!SEL) return; showErr(""); const rec=readForm(); if(!rec) return;
+    try{ $("#update").disabled=true; await updateDoc(doc(db,"eads_events",SEL), rec); clearEditor(); await load(); }
+    catch(e){ showErr(e.message||String(e)); } finally { $("#update").disabled=false; }
+  }
+  async function onDelete(){
+    if(!SEL) return; if(!confirm("Delete this event?")) return;
+    try{ $("#remove").disabled=true; await deleteDoc(doc(db,"eads_events",SEL)); clearEditor(); await load(); }
+    catch(e){ showErr(e.message||String(e)); } finally { $("#remove").disabled=false; }
+  }
+  function selectEvent(id){ const ev=ALL.find(x=>x.id===id); if(!ev) return; SEL=id; fillForm(ev); }
+
+  // init color chips now to avoid null
+  colorChips();
+</script>
+</body></html>
