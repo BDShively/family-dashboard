@@ -1,0 +1,293 @@
+<!-- /family-dashboard/family/grocery.html -->
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Family · Grocery List</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css"/>
+<style>
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--accent:#2b6cb0;--ok:#38a169;--warn:#d69e2e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,Inter}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px}
+.btn{background:#0f1330;border:1px solid var(--line);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.badge{padding:2px 8px;background:#0e1430;border:1px solid var(--line);border-radius:999px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--line);border-radius:10px;padding:8px}
+input[type="number"]{width:90px}
+select{padding-right:24px}
+.section{margin-top:8px}
+.section h3{margin:0 0 8px 0;font-size:16px}
+.item{display:grid;grid-template-columns:28px 1fr 90px 160px 1fr 110px;gap:8px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:#0f1330}
+.item.checked{opacity:.55;text-decoration:line-through}
+.item .name{font-weight:600}
+.item .notes{font-size:12px;color:var(--muted)}
+.empty{color:var(--muted);font-style:italic;padding:8px}
+.divider{height:1px;background:var(--line);margin:8px 0}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#0e1430;cursor:pointer}
+.search{flex:1}
+.right{margin-left:auto}
+.alert{display:none;background:#2a0f12;color:#ffd6d6;border:1px solid #522; padding:8px;border-radius:10px}
+@media (max-width:900px){
+  .item{grid-template-columns:24px 1fr 70px 120px 1fr 90px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <a class="btn" href="/family-dashboard/family/index.html">&larr; Family</a>
+    <span class="badge">Grocery List</span>
+  </div>
+  <div class="row" id="auth"></div>
+</header>
+
+<div class="card">
+  <div id="err" class="alert"></div>
+  <div class="row">
+    <input class="search" id="q" placeholder="Search items or notes…"/>
+    <select id="fltCat">
+      <option value="">All categories</option>
+      <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option>
+      <option>Pantry</option><option>Frozen</option><option>Beverages</option>
+      <option>Household</option><option>Baby/Pet</option><option>Pharmacy</option><option>Other</option>
+    </select>
+    <label class="row" style="gap:6px;"><input id="hideBought" type="checkbox"/> <span class="badge">Hide purchased</span></label>
+    <span class="right"></span>
+    <button id="clearBought" class="btn" title="Remove all checked">Clear purchased</button>
+    <button id="exportCsv" class="btn">Export CSV</button>
+  </div>
+  <div class="divider"></div>
+  <!-- Quick add -->
+  <div class="row">
+    <input id="inName" placeholder="Add item e.g. Milk"/>
+    <input id="inQty" type="number" min="1" step="1" value="1" title="Qty"/>
+    <select id="inCat">
+      <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option>
+      <option>Pantry</option><option>Frozen</option><option>Beverages</option>
+      <option>Household</option><option>Baby/Pet</option><option>Pharmacy</option><option selected>Other</option>
+    </select>
+    <input id="inNotes" placeholder="notes (brand, size, etc)"/>
+    <button id="addBtn" class="btn">Add</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <div class="chips">
+      <span class="chip" data-name="Milk" data-cat="Dairy">Milk</span>
+      <span class="chip" data-name="Eggs" data-cat="Dairy">Eggs</span>
+      <span class="chip" data-name="Bread" data-cat="Bakery">Bread</span>
+      <span class="chip" data-name="Bananas" data-cat="Produce">Bananas</span>
+      <span class="chip" data-name="Chicken Breast" data-cat="Meat">Chicken</span>
+      <span class="chip" data-name="Rice" data-cat="Pantry">Rice</span>
+      <span class="chip" data-name="Coffee" data-cat="Beverages">Coffee</span>
+      <span class="chip" data-name="Paper Towels" data-cat="Household">Paper towels</span>
+    </div>
+  </div>
+</div>
+
+<div class="card section" id="toBuyWrap">
+  <h3>To Buy <span class="badge" id="cntTodo">0</span></h3>
+  <div id="toBuyList"></div>
+</div>
+
+<div class="card section" id="boughtWrap">
+  <h3>Purchased <span class="badge" id="cntDone">0</span></h3>
+  <div id="boughtList"></div>
+</div>
+
+<script type="module">
+import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+import {
+  collection, doc, addDoc, getDocs, updateDoc, deleteDoc,
+  serverTimestamp, query, where, orderBy
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+const LOGIN="/family-dashboard/main/index.html";
+const LIST_ID="default"; // single shared list for you + Brandy
+const ITEMS = []; // local cache of {id,name,qty,category,notes,checked,addedBy,createdAt}
+
+const $ = (s)=>document.querySelector(s);
+const showErr = (t)=>{ const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none"; };
+const esc = s => String(s??"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));
+
+onAuthStateChanged(auth, async (u)=>{
+  if(!u){ location.href=LOGIN; return; }
+  $("#auth").innerHTML = `<span class="badge">${esc(u.email)}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+  $("#signout").onclick = e=>{e.preventDefault();signOutUser();};
+  bindUI(u);
+  await load();
+});
+
+function bindUI(user){
+  $("#addBtn").onclick = ()=> addItem(user);
+  $("#inName").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#addBtn").click(); });
+  document.querySelectorAll(".chip").forEach(ch=>{
+    ch.onclick=()=>{
+      $("#inName").value = ch.dataset.name;
+      $("#inCat").value  = ch.dataset.cat || "Other";
+      $("#inQty").value  = 1;
+      $("#inNotes").focus();
+    };
+  });
+  $("#q").oninput = render;
+  $("#fltCat").onchange = render;
+  $("#hideBought").onchange = render;
+  $("#clearBought").onclick = clearPurchased;
+  $("#exportCsv").onclick = exportCsv;
+}
+
+async function load(){
+  try{
+    const qref = query(
+      collection(db,"family_groceries", LIST_ID, "items"),
+      orderBy("checked","asc"),
+      orderBy("category","asc"),
+      orderBy("name","asc")
+    );
+    const snap = await getDocs(qref);
+    ITEMS.length = 0;
+    snap.forEach(d=> ITEMS.push({ id:d.id, ...d.data() }));
+    render();
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+function render(){
+  const q = ($("#q").value||"").toLowerCase();
+  const cat = $("#fltCat").value;
+  const hideBought = $("#hideBought").checked;
+
+  const filtered = ITEMS.filter(it=>{
+    if (cat && it.category!==cat) return false;
+    const hay = (it.name||"") + " " + (it.notes||"");
+    if (q && !hay.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const todos = filtered.filter(it=>!it.checked);
+  const dones = filtered.filter(it=>it.checked);
+
+  $("#cntTodo").textContent = String(todos.length);
+  $("#cntDone").textContent = String(dones.length);
+
+  $("#toBuyList").innerHTML = todos.length
+    ? todos.map(rowHTML).join("")
+    : `<div class="empty">Nothing here. Add items above.</div>`;
+
+  $("#boughtWrap").style.display = hideBought ? "none" : "block";
+  $("#boughtList")..innerHTML = dones.length
+    ? dones.map(rowHTML).join("")
+    : `<div class="empty">No purchased items.</div>`;
+
+  wireRowEvents();
+}
+
+function rowHTML(it){
+  return `
+  <div class="item ${it.checked?'checked':''}" data-id="${it.id}">
+    <input type="checkbox" class="ck" ${it.checked?'checked':''} title="mark bought"/>
+    <div class="name">${esc(it.name||'')}</div>
+    <input class="qty" type="number" min="1" step="1" value="${esc(it.qty??1)}" title="Qty"/>
+    <select class="cat">
+      ${opt("Produce",it.category)}${opt("Dairy",it.category)}${opt("Meat",it.category)}${opt("Bakery",it.category)}
+      ${opt("Pantry",it.category)}${opt("Frozen",it.category)}${opt("Beverages",it.category)}
+      ${opt("Household",it.category)}${opt("Baby/Pet",it.category)}${opt("Pharmacy",it.category)}${opt("Other",it.category)}
+    </select>
+    <input class="note" placeholder="notes" value="${esc(it.notes||'')}"/>
+    <div class="row">
+      <button class="btn sv" title="Save changes">Save</button>
+      <button class="btn rm" title="Delete">Delete</button>
+    </div>
+  </div>`;
+}
+function opt(v,cur){ return `<option ${cur===v?'selected':''}>${v}</option>`; }
+
+function wireRowEvents(){
+  document.querySelectorAll(".item").forEach(row=>{
+    const id = row.dataset.id;
+    row.querySelector(".ck").onchange = ()=> toggleCheck(id, row.querySelector(".ck").checked);
+    row.querySelector(".sv").onclick = ()=> saveRow(id, row);
+    row.querySelector(".rm").onclick = ()=> removeRow(id);
+  });
+}
+
+async function addItem(user){
+  const name = $("#inName").value.trim();
+  if(!name){ showErr("Enter an item name."); return; }
+  const qty  = Math.max(1, parseInt($("#inQty").value||"1",10));
+  const cat  = $("#inCat").value;
+  const notes= $("#inNotes").value.trim();
+  try{
+    $("#addBtn").disabled = true;
+    await addDoc(collection(db,"family_groceries", LIST_ID, "items"), {
+      name, qty, category:cat, notes, checked:false,
+      addedBy: user.email || "user", createdAt: serverTimestamp()
+    });
+    $("#inName").value=""; $("#inQty").value=1; $("#inNotes").value="";
+    await load();
+    showErr("");
+  }catch(e){ showErr(e.message||String(e)); }
+  finally{ $("#addBtn").disabled=false; }
+}
+
+async function toggleCheck(id, val){
+  try{
+    await updateDoc(doc(db,"family_groceries", LIST_ID, "items", id), { checked: !!val });
+    const it = ITEMS.find(x=>x.id===id); if (it) it.checked = !!val;
+    render();
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+async function saveRow(id, row){
+  const name = row.querySelector(".name").textContent.trim();
+  const qty = Math.max(1, parseInt(row.querySelector(".qty").value||"1",10));
+  const category = row.querySelector(".cat").value;
+  const notes = row.querySelector(".note").value.trim();
+  if(!name){ showErr("Item name cannot be empty."); return; }
+  try{
+    await updateDoc(doc(db,"family_groceries", LIST_ID, "items", id), { name, qty, category, notes });
+    const it = ITEMS.find(x=>x.id===id);
+    if(it){ it.name=name; it.qty=qty; it.category=category; it.notes=notes; }
+    render();
+    showErr("");
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+async function removeRow(id){
+  if(!confirm("Remove this item?")) return;
+  try{
+    await deleteDoc(doc(db,"family_groceries", LIST_ID, "items", id));
+    const i = ITEMS.findIndex(x=>x.id===id); if(i>=0) ITEMS.splice(i,1);
+    render();
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+async function clearPurchased(){
+  const done = ITEMS.filter(i=>i.checked);
+  if(!done.length){ showErr("No purchased items to clear."); return; }
+  if(!confirm(`Delete ${done.length} purchased item(s)?`)) return;
+  try{
+    for(const it of done){
+      await deleteDoc(doc(db,"family_groceries", LIST_ID, "items", it.id));
+    }
+    await load();
+    showErr("");
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+function exportCsv(){
+  const rows = [["Name","Qty","Category","Notes","Purchased","AddedBy"]];
+  ITEMS.forEach(it=>{
+    rows.push([it.name||"", String(it.qty||1), it.category||"", it.notes||"", it.checked?"Yes":"No", it.addedBy||""]);
+  });
+  const csv = rows.map(r=> r.map(cell=>{
+    const s = String(cell??"");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join("," )).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = "grocery-list.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body></html>
