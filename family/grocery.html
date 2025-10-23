@@ -4,7 +4,7 @@
 <title>Family · Grocery List</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css"/>
 <style>
-:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--accent:#2b6cb0;--ok:#38a169;--warn:#d69e2e}
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--accent:#2b6cb0}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,Inter}
 a{color:inherit;text-decoration:none}
 header{display:flex;justify-content:space-between;align-items:center;padding:16px}
@@ -28,10 +28,8 @@ select{padding-right:24px}
 .chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#0e1430;cursor:pointer}
 .search{flex:1}
 .right{margin-left:auto}
-.alert{display:none;background:#2a0f12;color:#ffd6d6;border:1px solid #522; padding:8px;border-radius:10px}
-@media (max-width:900px){
-  .item{grid-template-columns:24px 1fr 70px 120px 1fr 90px}
-}
+.alert{display:none;background:#2a0f12;color:#ffd6d6;border:1px solid #522;padding:8px;border-radius:10px}
+@media (max-width:900px){.item{grid-template-columns:24px 1fr 70px 120px 1fr 90px}}
 </style>
 </head>
 <body>
@@ -98,24 +96,24 @@ select{padding-right:24px}
 <script type="module">
 import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
 import {
-  collection, doc, addDoc, getDocs, updateDoc, deleteDoc,
-  serverTimestamp, query, where, orderBy
+  collection, doc, addDoc, updateDoc, deleteDoc,
+  serverTimestamp, query, orderBy, onSnapshot
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 const LOGIN="/family-dashboard/main/index.html";
-const LIST_ID="default"; // single shared list for you + Brandy
-const ITEMS = []; // local cache of {id,name,qty,category,notes,checked,addedBy,createdAt}
+const LIST_ID="default"; // single shared list
+const ITEMS = []; // cache
 
 const $ = (s)=>document.querySelector(s);
-const showErr = (t)=>{ const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none"; };
 const esc = s => String(s??"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));
+const showErr = (t)=>{ const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none"; };
 
 onAuthStateChanged(auth, async (u)=>{
   if(!u){ location.href=LOGIN; return; }
   $("#auth").innerHTML = `<span class="badge">${esc(u.email)}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
   $("#signout").onclick = e=>{e.preventDefault();signOutUser();};
   bindUI(u);
-  await load();
+  startLive();
 });
 
 function bindUI(user){
@@ -136,19 +134,18 @@ function bindUI(user){
   $("#exportCsv").onclick = exportCsv;
 }
 
-async function load(){
-  try{
-    const qref = query(
-      collection(db,"family_groceries", LIST_ID, "items"),
-      orderBy("checked","asc"),
-      orderBy("category","asc"),
-      orderBy("name","asc")
-    );
-    const snap = await getDocs(qref);
+function startLive(){
+  const qref = query(
+    collection(db,"family_groceries", LIST_ID, "items"),
+    orderBy("checked","asc"),
+    orderBy("category","asc"),
+    orderBy("name","asc")
+  );
+  onSnapshot(qref, (snap)=>{
     ITEMS.length = 0;
     snap.forEach(d=> ITEMS.push({ id:d.id, ...d.data() }));
     render();
-  }catch(e){ showErr(e.message||String(e)); }
+  }, (e)=> showErr(e.message||String(e)));
 }
 
 function render(){
@@ -223,7 +220,6 @@ async function addItem(user){
       addedBy: user.email || "user", createdAt: serverTimestamp()
     });
     $("#inName").value=""; $("#inQty").value=1; $("#inNotes").value="";
-    await load();
     showErr("");
   }catch(e){ showErr(e.message||String(e)); }
   finally{ $("#addBtn").disabled=false; }
@@ -256,8 +252,6 @@ async function removeRow(id){
   if(!confirm("Remove this item?")) return;
   try{
     await deleteDoc(doc(db,"family_groceries", LIST_ID, "items", id));
-    const i = ITEMS.findIndex(x=>x.id===id); if(i>=0) ITEMS.splice(i,1);
-    render();
   }catch(e){ showErr(e.message||String(e)); }
 }
 
@@ -269,7 +263,6 @@ async function clearPurchased(){
     for(const it of done){
       await deleteDoc(doc(db,"family_groceries", LIST_ID, "items", it.id));
     }
-    await load();
     showErr("");
   }catch(e){ showErr(e.message||String(e)); }
 }
