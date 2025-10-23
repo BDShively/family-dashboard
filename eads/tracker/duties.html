@@ -1,98 +1,210 @@
 <!-- /family-dashboard/eads/tracker/duties.html -->
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EADS · Duties</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
-  body{font-family:system-ui,Segoe UI,Inter,Roboto,Arial;margin:0;padding:18px;color:#e6eefc;background:#0b1220}
-  a{color:inherit;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
-  .btn{padding:8px 10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330}
-  .card{background:#111832;border:1px solid #2b325a;border-radius:14px;padding:12px;margin-bottom:12px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
-  label{font-size:12px;color:#9db1d1}input,select{width:100%;padding:10px;border:1px solid #2b325a;border-radius:10px;background:#0f1330;color:#e6eefc}
-  .muted{color:#9db1d1;font-size:12px}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #2b325a;text-align:left;font-size:14px}
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--hi:#2b6cb0;--ok:#38a169;--bad:#e53e3e}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:var(--bg);color:var(--fg);padding:18px}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.btn[disabled]{opacity:.6;cursor:not-allowed}
+label{font-size:12px;color:var(--muted)}
+input,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+textarea{min-height:90px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+.row{display:flex;gap:8px;align-items:center}
+.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
+.alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:1fr auto;gap:8px}
+.muted{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
 <header>
-  <div><a class="btn" href="./index.html">&larr; EADS</a></div>
+  <div class="row">
+    <a class="btn" href="/family-dashboard/eads/tracker/index.html">&larr; EADS Tracker</a>
+    <span class="badge">Duties</span>
+  </div>
   <div id="auth"></div>
 </header>
 
-<h1>Duties</h1>
+<div id="err" class="alert"></div>
 
-<div class="card">
-  <div class="row">
-    <div><label>Duty</label><input id="du_name"></div>
-    <div><label>Owner</label><input id="du_owner"></div>
+<!-- Two roles side-by-side -->
+<div class="grid2">
+  <!-- CSS -->
+  <div class="card" id="cssCard">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">CSS</h2>
+      <span class="badge" id="cssCount">0/5</span>
+    </div>
+    <div class="list" id="cssList"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="cssAdd">Add duty</button>
+      <button class="btn" id="cssSave">Save</button>
+      <button class="btn" id="cssReset">Reset</button>
+    </div>
+    <div style="margin-top:10px">
+      <label>Notes</label>
+      <textarea id="cssNotes" placeholder="CSS notes, reminders, SOP links"></textarea>
+    </div>
+    <div class="muted" style="margin-top:6px">Limit: 5 duties. Use Save to persist.</div>
   </div>
-  <div class="row" style="margin-top:10px">
-    <div><label>Type</label><select id="du_type"><option>Primary</option><option>Additional</option></select></div>
-    <div><label>Status</label><select id="du_status"><option>Open</option><option>In Progress</option><option>Complete</option></select></div>
-  </div>
-  <div class="row" style="margin-top:10px">
-    <div><label>Due</label><input id="du_due" type="date"></div>
-    <div><label>Notes</label><input id="du_notes"></div>
-  </div>
-  <div style="margin-top:12px">
-    <button class="btn" id="du_save">Save</button>
-    <button class="btn" id="du_update" disabled>Update</button>
-    <button class="btn" id="du_delete" disabled>Delete</button>
-    <span id="du_sel" class="muted"></span>
-  </div>
-</div>
 
-<div class="card">
-  <div class="row">
-    <div><label>Type Filter</label><select id="du_filterT"><option value="">All</option><option>Primary</option><option>Additional</option></select></div>
-    <div><label>Status Filter</label><select id="du_filterS"><option value="">All</option><option>Open</option><option>In Progress</option><option>Complete</option></select></div>
+  <!-- EXEC -->
+  <div class="card" id="execCard">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">EXEC</h2>
+      <span class="badge" id="execCount">0/5</span>
+    </div>
+    <div class="list" id="execList"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="execAdd">Add duty</button>
+      <button class="btn" id="execSave">Save</button>
+      <button class="btn" id="execReset">Reset</button>
+    </div>
+    <div style="margin-top:10px">
+      <label>Notes</label>
+      <textarea id="execNotes" placeholder="EXEC notes, reminders, SOP links"></textarea>
+    </div>
+    <div class="muted" style="margin-top:6px">Limit: 5 duties. Use Save to persist.</div>
   </div>
-  <div id="du_count" class="muted" style="margin:8px 0"></div>
-  <table id="du_tbl">
-    <thead><tr>
-      <th data-k="createdAt">Created</th>
-      <th data-k="type">Type</th>
-      <th data-k="name">Duty</th>
-      <th data-k="owner">Owner</th>
-      <th data-k="status">Status</th>
-      <th data-k="due">Due</th>
-    </tr></thead>
-    <tbody></tbody>
-  </table>
 </div>
 
 <script type="module">
-  import { onAuthStateChanged, auth, signOutUser } from "/family-dashboard/js/firebase-init.js";
-  import { gate,$ } from './eads.js'; gate();
-  import { makeFSList } from './eads-fs.js';
-  onAuthStateChanged(auth,(u)=>{
-    if(!u){ location.href="/family-dashboard/main/index.html"; return; }
-    const c=document.getElementById('auth'); c.innerHTML = `<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
-    document.getElementById('signout').onclick=(e)=>{e.preventDefault();signOutUser();};
+  import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+  import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  const LOGIN="/family-dashboard/main/index.html";
+  const MAX=5;
+
+  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
+    const c=document.getElementById("auth");
+    c.innerHTML='<span class="badge">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
+    document.getElementById("signout").onclick=(e)=>{e.preventDefault();signOutUser();};
+    init();
   });
 
-  const comboFilter = {
-    get value(){ return ($('#du_filterT').value||'') + '|' + ($('#du_filterS').value||''); },
-    set oninput(fn){ ['#du_filterT','#du_filterS'].forEach(sel=>document.querySelector(sel).addEventListener('input',fn)); }
+  const $=(s)=>document.querySelector(s);
+  function showErr(m){ const e=$("#err"); e.textContent=m||""; e.style.display=m?"block":"none"; }
+
+  // Render a single role card's duty rows
+  function renderList(containerId, duties){
+    const wrap=$(containerId);
+    wrap.innerHTML="";
+    duties.forEach((text,idx)=>{
+      const row=document.createElement("div");
+      row.className="item";
+      row.innerHTML = `
+        <input value="${escapeHtml(text)}" placeholder="Duty ${idx+1}">
+        <button class="btn" data-del="${idx}">Remove</button>
+      `;
+      wrap.appendChild(row);
+    });
+  }
+  function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m])); }
+
+  // State for each role
+  const state = {
+    CSS: { duties: [], notes: "" },
+    EXEC:{ duties: [], notes: "" }
   };
 
-  makeFSList({
-    store:'eads_duties',
-    $thead: $('#du_tbl thead'), $tbody: $('#du_tbl tbody'),
-    $save: $('#du_save'), $update: $('#du_update'), $delete: $('#du_delete'),
-    $selInfo: $('#du_sel'), $filter: comboFilter,
-    defaultSort:'due',
-    filterFn:(r,v)=>{ const [t,s]=v.split('|'); return (!t||r.type===t) && (!s||r.status===s); },
-    rowHTML:r=>`<tr data-id="${r.id}">
-      <td>${r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString() : ''}</td>
-      <td>${r.type||''}</td><td>${r.name||''}</td><td>${r.owner||''}</td><td>${r.status||''}</td><td>${r.due||''}</td>
-    </tr>`,
-    getForm:()=>({ type:$('#du_type').value, name:$('#du_name').value.trim(), owner:$('#du_owner').value.trim(), status:$('#du_status').value, due:$('#du_due').value, notes:$('#du_notes').value.trim() }),
-    setForm:r=>{ $('#du_type').value=r.type||'Primary'; $('#du_name').value=r.name||''; $('#du_owner').value=r.owner||''; $('#du_status').value=r.status||'Open'; $('#du_due').value=r.due||''; $('#du_notes').value=r.notes||''; },
-    clearForm:()=>{ ['#du_name','#du_owner','#du_due','#du_notes'].forEach(s=>$(s).value=''); $('#du_type').value='Primary'; $('#du_status').value='Open'; $('#du_update').disabled=$('#du_delete').disabled=true; $('#du_sel').textContent=''; }
-  });
+  async function ensureDoc(role){
+    const ref=doc(db,"eads_duties",role);
+    const snap=await getDoc(ref);
+    if(!snap.exists()){
+      await setDoc(ref,{ duties:[], notes:"", updatedAt: serverTimestamp() });
+      return { duties:[], notes:"" };
+    }
+    const d=snap.data();
+    return { duties: Array.isArray(d.duties)? d.duties.slice(0,MAX) : [], notes: d.notes||"" };
+  }
+
+  function bindRole(role, listSel, countSel, notesSel, addBtnSel, saveBtnSel, resetBtnSel){
+    // count update
+    const updateCount=()=> { $(countSel).textContent = `${state[role].duties.length}/${MAX}`; };
+
+    // add handler
+    $(addBtnSel).onclick=()=>{
+      if(state[role].duties.length>=MAX){ showErr(`${role}: limit ${MAX}`); return; }
+      state[role].duties.push("");
+      renderList(listSel, state[role].duties);
+      hookRowButtons(role, listSel, countSel);
+      updateCount();
+      showErr("");
+    };
+
+    // save handler
+    $(saveBtnSel).onclick=async ()=>{
+      try{
+        // read current inputs
+        const vals=[...document.querySelectorAll(`${listSel} input`)].map(i=>i.value.trim()).filter(v=>v);
+        state[role].duties = vals.slice(0,MAX);
+        state[role].notes  = $(notesSel).value.trim();
+        await updateDoc(doc(db,"eads_duties",role), { duties: state[role].duties, notes: state[role].notes, updatedAt: serverTimestamp() });
+        updateCount();
+        showErr(""); // success silent
+      }catch(e){ showErr(e.message||String(e)); }
+    };
+
+    // reset handler (reload from DB)
+    $(resetBtnSel).onclick=async ()=>{
+      try{
+        const fresh=await ensureDoc(role);
+        state[role]=fresh;
+        renderList(listSel, state[role].duties);
+        hookRowButtons(role, listSel, countSel);
+        $(notesSel).value=state[role].notes;
+        updateCount();
+        showErr("");
+      }catch(e){ showErr(e.message||String(e)); }
+    };
+
+    // initial notes link
+    $(notesSel).oninput=()=>{ /* deferred until Save */ };
+
+    updateCount();
+  }
+
+  function hookRowButtons(role, listSel, countSel){
+    // wire remove buttons after render
+    document.querySelectorAll(`${listSel} button[data-del]`).forEach(btn=>{
+      btn.onclick=()=>{
+        const idx=Number(btn.dataset.del);
+        state[role].duties.splice(idx,1);
+        renderList(listSel, state[role].duties);
+        hookRowButtons(role, listSel, countSel);
+        document.querySelector(countSel).textContent = `${state[role].duties.length}/${MAX}`;
+      };
+    });
+  }
+
+  async function init(){
+    try{
+      // load or create the two fixed roles
+      state.CSS  = await ensureDoc("CSS");
+      state.EXEC = await ensureDoc("EXEC");
+
+      // render
+      renderList("#cssList", state.CSS.duties);
+      renderList("#execList", state.EXEC.duties);
+      $("#cssNotes").value = state.CSS.notes||"";
+      $("#execNotes").value = state.EXEC.notes||"";
+
+      // bind
+      bindRole("CSS", "#cssList", "#cssCount", "#cssNotes", "#cssAdd", "#cssSave", "#cssReset");
+      bindRole("EXEC","#execList","#execCount","#execNotes","#execAdd","#execSave","#execReset");
+
+      // hook row remove after initial render
+      hookRowButtons("CSS","#cssList","#cssCount");
+      hookRowButtons("EXEC","#execList","#execCount");
+    }catch(e){ showErr(e.message||String(e)); }
+  }
 </script>
-</body>
-</html>
+</body></html>
