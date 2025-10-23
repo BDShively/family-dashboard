@@ -174,7 +174,7 @@ function render(){
     : `<div class="empty">Nothing here. Add items above.</div>`;
 
   $("#boughtWrap").style.display = hideBought ? "none" : "block";
-  $("#boughtList")..innerHTML = dones.length
+  $("#boughtList").innerHTML = dones.length
     ? dones.map(rowHTML).join("")
     : `<div class="empty">No purchased items.</div>`;
 
