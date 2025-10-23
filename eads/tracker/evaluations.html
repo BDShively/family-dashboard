@@ -3,390 +3,337 @@
 <title>EADS · Evaluations</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
-:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--hi:#2b6cb0}
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:var(--bg);color:var(--fg);padding:18px}
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--hi:#2b6cb0;--ok:#38a169;--warn:#d69e2e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Inter;padding:18px}
 a{color:inherit;text-decoration:none}
 header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
-.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn[disabled]{opacity:.6;cursor:not-allowed}
 .card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:1000px){.row{grid-template-columns:1fr}}
 label{font-size:12px;color:var(--muted)}
-input,textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
-table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
-th{color:var(--muted)}
-.muted{color:var(--muted);font-size:12px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+textarea{min-height:90px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr}}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+.table th{color:var(--muted)}
+.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
 .alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
-.badge{padding:2px 8px;border:1px solid #2b325a;border-radius:999px;background:#0e1430;font-size:12px}
-.kit{display:flex;gap:6px;flex-wrap:wrap}
-.step{display:grid;grid-template-columns:1fr auto auto 200px;gap:8px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:#0f1330;margin-bottom:6px}
-.step.current{outline:2px solid var(--hi)}
-.bar{position:relative;height:10px;border:1px solid var(--line);border-radius:999px;background:#0e1430;overflow:hidden}
-.fill{position:absolute;left:0;top:0;height:100%}
-.gridHead{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:center}
+.progress{height:10px;background:#0e1430;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.bar{height:100%;background:linear-gradient(90deg,#2b6cb0,#38a169)}
+.small{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.aside{background:#0f1330;border:1px dashed var(--line);border-radius:12px;padding:10px}
+.mono{font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
 <header>
-  <div><a class="btn" href="/family-dashboard/eads/tracker/index.html">&larr; EADS Tracker</a></div>
+  <div class="row">
+    <a class="btn" href="/family-dashboard/eads/tracker/index.html">&larr; EADS Tracker</a>
+    <span class="badge">Evaluations</span>
+  </div>
   <div id="auth"></div>
 </header>
 
-<h1>Evaluations</h1>
 <div id="err" class="alert"></div>
 
-<!-- Create / edit header -->
+<!-- Create / Edit (top) -->
 <div class="card">
-  <div class="row">
+  <div class="grid3">
     <div><label>Member</label><input id="f_member" placeholder="Last, First MI"></div>
-    <div><label>Status Note</label><input id="f_note" placeholder="optional"></div>
+    <div><label>Rank</label>
+      <select id="f_rank">
+        <option value="">—</option>
+        <optgroup label="Enlisted">
+          <option>AB</option><option>Amn</option><option>A1C</option><option>SrA</option>
+          <option>SSgt</option><option>TSgt</option><option>MSgt</option><option>SMSgt</option><option>CMSgt</option>
+        </optgroup>
+        <optgroup label="Officer">
+          <option>2Lt</option><option>1Lt</option><option>Capt</option><option>Maj</option><option>Lt Col</option><option>Col</option>
+        </optgroup>
+        <optgroup label="Other"><option>Civ</option></optgroup>
+      </select>
+    </div>
+    <div><label>Period End</label><input id="f_end" type="date"></div>
+    <div style="grid-column:span 3"><label>Private Notes (not shown in status panel)</label>
+      <textarea id="f_notes" placeholder="Only visible when opening an entry"></textarea>
+    </div>
   </div>
   <div class="row" style="margin-top:10px">
-    <div><label>Period Start</label><input id="f_start" type="date"></div>
-    <div><label>Period End</label><input id="f_end" type="date"></div>
+    <button class="btn" id="save">Save</button>
+    <button class="btn" id="update" disabled>Update</button>
+    <button class="btn" id="remove" disabled>Delete</button>
+    <span id="sel" class="badge">none</span>
   </div>
-  <div style="margin-top:10px">
-    <button class="btn" id="save" type="button">Save</button>
-    <button class="btn" id="update" type="button" disabled>Update</button>
-    <button class="btn" id="remove" type="button" disabled>Delete</button>
-    <span id="sel" class="muted"></span>
-  </div>
-  <div class="muted" style="margin-top:8px">New records start at step 1: Flight Draft.</div>
 </div>
 
-<!-- Filters, sorting, list -->
+<!-- Filters -->
 <div class="card">
-  <div class="gridHead">
+  <div class="row">
     <div>
       <label>Search</label>
-      <input id="search" placeholder="member, note">
-    </div>
-    <div>
-      <label>Open/Closed</label>
-      <select id="filter">
-        <option value="">All</option><option value="open">Open</option><option value="closed">Closed</option>
-      </select>
-    </div>
-    <div>
-      <label>Sort</label>
-      <select id="sort">
-        <option value="member">Member A→Z</option>
-        <option value="progress_desc">Progress High→Low</option>
-        <option value="suspense_asc">Suspense Soonest</option>
-        <option value="status">Status A→Z</option>
-        <option value="step">Current Step A→Z</option>
-      </select>
+      <input id="q" placeholder="member or notes">
     </div>
     <div>
       <label>Year (by Period End)</label>
-      <select id="year"><option value="">All</option></select>
+      <select id="fltYear"></select>
     </div>
-    <div><span id="count" class="badge">0</span></div>
-    <div style="text-align:right"><span class="muted">Progress = step / 11</span></div>
+    <span class="badge" id="count" style="margin-left:auto">0</span>
   </div>
+</div>
 
-  <table id="tbl" style="margin-top:10px">
-    <thead><tr>
-      <th>Member</th><th>Period</th><th>Suspense</th><th>Status</th><th style="width:220px">Progress</th><th>Note</th><th>Open</th>
-    </tr></thead>
-    <tbody></tbody>
+<!-- List -->
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Member</th><th>Rank</th><th>End</th><th>Suspense</th><th>Step</th><th>Progress</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="tbl"></tbody>
   </table>
 </div>
 
-<!-- Detail + step editor -->
-<div class="card" id="detail" style="display:none">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-    <h3 style="margin:0" id="d_title">Steps</h3>
-    <div class="kit">
-      <button class="btn" id="btn_complete" type="button">Complete current</button>
-      <button class="btn" id="btn_reopen"   type="button">Reopen previous</button>
-      <button class="btn" id="btn_close"    type="button">Close now</button>
+<!-- Status / Steps panel -->
+<div class="card">
+  <div class="row" style="justify-content:space-between">
+    <div>
+      <div class="small">Selected</div>
+      <div id="hdrSel" class="badge">none</div>
+    </div>
+    <div class="aside">
+      <div class="small">Suspense = Period End + 45 days</div>
+      <div class="mono" id="hdrSusp">—</div>
     </div>
   </div>
-  <div style="margin:10px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-    <div class="bar" style="width:260px"><div id="d_fill" class="fill" style="width:0;background:#38a169"></div></div>
-    <span id="d_prog" class="badge">0%</span>
-    <span id="d_suspense" class="badge">Suspense —</span>
+  <div style="margin:10px 0">
+    <div class="progress"><div id="pbar" class="bar" style="width:0%"></div></div>
+    <div class="row small" style="justify-content:space-between;margin-top:6px">
+      <div>Current: <span id="curStep">—</span></div>
+      <div><button class="btn" id="complete">Complete Current</button></div>
+    </div>
   </div>
-  <div id="steps"></div>
+
+  <div class="grid2" id="stepsGrid"></div>
+  <div class="row" style="margin-top:10px">
+    <button class="btn" id="saveSteps" disabled>Save Step Dates</button>
+  </div>
 </div>
 
 <script type="module">
-  import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
-  import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-  const STEP_NAMES = [
-    "Flight Draft","SEO Review","Flt Corrections","SEL/CCD Review","Flt Corrections",
-    "CC Review","Flt Corrections","Rater Sign","CC Sign","Shirt QC","Ratee Sign","MPF"
-  ];
-  const LAST_IDX = STEP_NAMES.length-1;
+const LOGIN="/family-dashboard/main/index.html";
+const STEPS = [
+  "Flight Draft","SEO Review","Flt Corrections","SEL/CCD Review","Flt Corrections",
+  "CC Review","Flt Corrections","Rater Sign","CC Sign","Shirt QC","Ratee Sign","MPF"
+];
 
-  const LOGIN="/family-dashboard/main/index.html";
-  onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
-    const c=document.getElementById("auth");
-    c.innerHTML='<span class="muted">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
-    document.getElementById("signout").onclick=(e)=>{e.preventDefault();signOutUser();};
+const $=(s)=>document.querySelector(s);
+const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));
+function showErr(t){ const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none"; }
+function iso(d){ return new Date(d).toISOString().slice(0,10); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+
+let ROWS=[], SEL=null;
+
+onAuthStateChanged(auth,(u)=>{ if(!u){location.href=LOGIN;return;}
+  const c=document.getElementById("auth");
+  c.innerHTML='<span class="badge">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
+  document.getElementById("signout").onclick=(e)=>{e.preventDefault();signOutUser();};
+  init();
+});
+
+async function init(){
+  $("#save").onclick=onSave; $("#update").onclick=onUpdate; $("#remove").onclick=onDelete;
+  $("#q").oninput=render; $("#fltYear").oninput=render;
+  $("#complete").onclick=completeCurrent;
+  $("#saveSteps").onclick=saveStepDates;
+  $("#f_end").value = iso(new Date());
+  await load();
+}
+
+async function load(){
+  const snap = await getDocs(collection(db,"eads_evals"));
+  ROWS = snap.docs.map(d=>{
+    const x=d.data();
+    const end = typeof x.periodEnd==="string" ? x.periodEnd : (x.periodEnd?.seconds? iso(x.periodEnd.seconds*1000) : "");
+    const suspense = end? iso(addDays(end,45)) : "";
+    return {
+      id:d.id,
+      member:x.member||"",
+      rank:x.rank||"",
+      periodEnd:end,
+      suspense:suspense,
+      steps:Array.isArray(x.steps)? x.steps : STEPS.map(n=>({name:n,date:""})),
+      curIndex: Number.isFinite(x.curIndex)? x.curIndex : 0,
+      notes:x.notes||"",
+      createdAt:x.createdAt?.seconds||0
+    };
+  });
+  buildYears();
+  render();
+}
+
+function buildYears(){
+  const years = new Set( ROWS.map(r=> (r.periodEnd||"").slice(0,4)).filter(Boolean) );
+  const nowY = new Date().getFullYear();
+  if(!years.has(String(nowY))) years.add(String(nowY));
+  const arr=[...years].sort();
+  $("#fltYear").innerHTML = `<option value="">All</option>` + arr.map(y=>`<option>${y}</option>`).join("");
+}
+
+function progressOf(r){ return Math.round(100 * Math.min(r.curIndex, r.steps.length) / r.steps.length); }
+
+function render(){
+  const q=($("#q").value||"").toLowerCase();
+  const fy=$("#fltYear").value;
+  let rows = ROWS.filter(r=>{
+    const hit = (r.member+" "+r.rank+" "+r.notes).toLowerCase().includes(q);
+    const yr = (r.periodEnd||"").slice(0,4);
+    return hit && (!fy || yr===fy);
   });
 
-  const $=(s)=>document.querySelector(s);
-  let ROWS=[], SEL=null;
+  $("#count").textContent = rows.length+" item(s)";
 
-  // utils
-  const pad=(n)=>String(n).padStart(2,"0");
-  function dateISO(d){ return d? d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()):""; }
-  function tsToISO(v){ if(!v) return ""; if(typeof v==="string") return v; if(v.seconds) return new Date(v.seconds*1000).toISOString().slice(0,10); return ""; }
-  function addDaysStr(iso,days){ if(!iso) return ""; const d=new Date(iso+"T12:00:00"); d.setDate(d.getDate()+days); return dateISO(d); }
-  function progressPct(stepIndex,closed){ if(closed) return 100; const p=Math.round((Math.max(0,stepIndex)/LAST_IDX)*100); return Math.min(100,Math.max(0,p)); }
-  function barColor(p){ if(p<33) return "#d69e2e"; if(p<66) return "#3182ce"; if(p<100) return "#7c3aed"; return "#38a169"; }
-  function esc(s){ return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m])); }
-  function show(m){ const e=document.getElementById("err"); e.textContent=m||""; e.style.display=m?"block":"none"; }
+  $("#tbl").innerHTML = rows.map(r=>{
+    const pct = progressOf(r);
+    return `<tr data-id="${r.id}">
+      <td>${esc(r.member)}</td>
+      <td>${esc(r.rank||"")}</td>
+      <td class="mono">${esc(r.periodEnd||"")}</td>
+      <td class="mono">${esc(r.suspense||"")}</td>
+      <td>${esc(r.steps[r.curIndex]?.name || "Complete")}</td>
+      <td style="min-width:160px">
+        <div class="progress"><div class="bar" style="width:${pct}%"></div></div>
+      </td>
+      <td><button class="btn open">Open</button></td>
+    </tr>`;
+  }).join("");
 
-  // load
-  async function load(){
-    const snap = await getDocs(query(collection(db,"eads_evals"), orderBy("member")));
-    ROWS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  document.querySelectorAll("#tbl tr .open").forEach(btn=>{
+    btn.onclick=()=> select(btn.closest("tr").dataset.id);
+  });
+}
 
-    // build year filter from Period End years
-    const yrs = Array.from(new Set(ROWS.map(r=> String(r.end||"").slice(0,4)).filter(Boolean))).sort((a,b)=>b.localeCompare(a));
-    const ysel = document.getElementById("year");
-    ysel.innerHTML = '<option value="">All</option>' + yrs.map(y=>`<option value="${y}">${y}</option>`).join('');
-    const nowY = String(new Date().getFullYear());
-    if(yrs.includes(nowY)) ysel.value = nowY;
+/* Select one entry -> load editor and status panel */
+function select(id){
+  SEL=id;
+  const r=ROWS.find(x=>x.id===id); if(!r) return;
+  $("#sel").textContent="Selected "+id;
+  $("#update").disabled=false; $("#remove").disabled=false;
 
-    render();
-  }
+  // top editor fields (including Private Notes)
+  $("#f_member").value=r.member||"";
+  $("#f_rank").value=r.rank||"";
+  $("#f_end").value=r.periodEnd||iso(new Date());
+  $("#f_notes").value=r.notes||"";
 
-  // render list
-  function render(){
-    const q = (document.getElementById("search").value||"").toLowerCase();
-    const f = document.getElementById("filter").value;
-    const yr = document.getElementById("year").value;
+  // status header
+  $("#hdrSel").textContent = `${r.member} · ${r.rank||""}`;
+  $("#hdrSusp").textContent = r.suspense||"";
+  $("#pbar").style.width = progressOf(r)+"%";
+  $("#curStep").textContent = r.steps[r.curIndex]?.name || "Complete";
 
-    let rows = ROWS
-      .filter(r=> !q || (String(r.member||"").toLowerCase()+" "+String(r.note||"").toLowerCase()).includes(q))
-      .filter(r=> f==="" || (f==="open" ? !r.closed : !!r.closed))
-      .filter(r=> !yr || String(r.end||"").slice(0,4)===yr)
-      .map(r=>{
-        const stepIdx = r.stepIndex||0;
-        const status = r.closed ? "Closed" : (STEP_NAMES[stepIdx]||"—");
-        const pct = progressPct(stepIdx,r.closed);
-        const suspense = addDaysStr(r.end||"",45);
-        return {...r, _status:status, _pct:pct, _suspense:suspense};
-      });
+  // steps grid (editable dates)
+  $("#stepsGrid").innerHTML = r.steps.map((s,i)=>`
+    <div>
+      <label>${esc(s.name)}</label>
+      <input type="date" data-idx="${i}" value="${esc(s.date||"")}">
+    </div>
+  `).join("");
+  $("#saveSteps").disabled=false;
+}
 
-    const sort = document.getElementById("sort").value;
-    rows.sort((a,b)=>{
-      if(sort==="member") return String(a.member||"").localeCompare(String(b.member||""));
-      if(sort==="progress_desc") return (b._pct - a._pct) || String(a.member||"").localeCompare(String(b.member||""));
-      if(sort==="suspense_asc") return String(a._suspense||"").localeCompare(String(b._suspense||""));
-      if(sort==="status") return String(a._status||"").localeCompare(String(b._status||""));
-      if(sort==="step") return String(STEP_NAMES[a.stepIndex||0]||"").localeCompare(String(STEP_NAMES[b.stepIndex||0]||""));
-      return 0;
+/* Create */
+function readEditor(){
+  const member=$("#f_member").value.trim(); if(!member){ showErr("Member required"); return null; }
+  const rank=$("#f_rank").value;
+  const end=$("#f_end").value; if(!end){ showErr("Period End required"); return null; }
+  const notes=$("#f_notes").value.trim();
+  const suspense = iso(addDays(end,45));
+  return { member, rank, periodEnd:end, suspense, notes };
+}
+
+async function onSave(){
+  showErr("");
+  const base = readEditor(); if(!base) return;
+  try{
+    $("#save").disabled=true;
+    await addDoc(collection(db,"eads_evals"), {
+      ...base,
+      steps: STEPS.map(n=>({name:n,date:""})),
+      curIndex: 0,
+      createdAt: serverTimestamp()
     });
+    clearSelection(); await load();
+  }catch(e){ showErr(e.message||String(e)); }
+  finally{ $("#save").disabled=false; }
+}
 
-    document.getElementById("count").textContent = rows.length+" result(s)";
+async function onUpdate(){
+  if(!SEL) return;
+  showErr("");
+  const base=readEditor(); if(!base) return;
+  try{
+    $("#update").disabled=true;
+    await updateDoc(doc(db,"eads_evals",SEL), base);
+    await load(); select(SEL);
+  }catch(e){ showErr(e.message||String(e)); }
+  finally{ $("#update").disabled=false; }
+}
 
-    document.querySelector("#tbl tbody").innerHTML = rows.map(r=>{
-      const barW = r._pct; const col = barColor(barW);
-      return `<tr data-id="${r.id}">
-        <td>${esc(r.member||"")}</td>
-        <td>${esc(r.start||"")} → ${esc(r.end||"")}</td>
-        <td>${r._suspense||""}</td>
-        <td>${esc(r._status||"")}${r.closed?'':' '}</td>
-        <td>
-          <div class="bar" style="width:200px"><div class="fill" style="width:${barW}%;background:${col}"></div></div>
-          <div class="muted">${barW}%</div>
-        </td>
-        <td>${esc(r.note||"")}</td>
-        <td><button class="btn" type="button" data-open="${r.id}">Open</button></td>
-      </tr>`;
-    }).join("");
+async function onDelete(){
+  if(!SEL) return;
+  if(!confirm("Delete this evaluation?")) return;
+  try{
+    $("#remove").disabled=true;
+    await deleteDoc(doc(db,"eads_evals",SEL));
+    clearSelection(); await load();
+  }catch(e){ showErr(e.message||String(e)); }
+  finally{ $("#remove").disabled=false; }
+}
 
-    document.querySelectorAll("#tbl tbody tr").forEach(tr=>{
-      tr.onclick=(e)=>{ if(e.target.dataset.open) return; select(tr.dataset.id); };
-    });
-    document.querySelectorAll('#tbl tbody button[data-open]').forEach(b=>{
-      b.onclick=(e)=>{ e.stopPropagation(); openDetail(b.dataset.open); };
-    });
-  }
+function clearSelection(){
+  SEL=null; $("#sel").textContent="none"; $("#update").disabled=true; $("#remove").disabled=true;
+  $("#hdrSel").textContent="none"; $("#hdrSusp").textContent="—"; $("#pbar").style.width="0%"; $("#curStep").textContent="—";
+  $("#stepsGrid").innerHTML=""; $("#saveSteps").disabled=true;
+}
 
-  // select header form
-  function select(id){
-    SEL=id;
-    const r = ROWS.find(x=>x.id===id); if(!r) return;
-    document.getElementById("f_member").value=r.member||""; document.getElementById("f_note").value=r.note||"";
-    document.getElementById("f_start").value=r.start||"";   document.getElementById("f_end").value=r.end||"";
-    document.getElementById("update").disabled=false; document.getElementById("remove").disabled=false; document.getElementById("sel").textContent="Selected "+id;
-  }
-  function clearForm(){
-    ["f_member","f_note","f_start","f_end"].forEach(id=>document.getElementById(id).value="");
-    document.getElementById("update").disabled=true; document.getElementById("remove").disabled=true; document.getElementById("sel").textContent=""; SEL=null;
-  }
+/* Complete current step -> stamps today string, advances index */
+async function completeCurrent(){
+  if(!SEL) return;
+  const r=ROWS.find(x=>x.id===SEL); if(!r) return;
+  const idx = r.curIndex;
+  if(idx>=r.steps.length){ showErr("All steps complete"); return; }
+  r.steps[idx].date = iso(new Date());
+  r.curIndex = Math.min(idx+1, r.steps.length);
+  try{
+    await updateDoc(doc(db,"eads_evals",SEL), { steps:r.steps, curIndex:r.curIndex });
+    await load(); select(SEL);
+  }catch(e){ showErr(e.message||String(e)); }
+}
 
-  // CRUD header
-  document.getElementById("save").onclick = async ()=>{
-    const member=document.getElementById("f_member").value.trim(), start=document.getElementById("f_start").value, end=document.getElementById("f_end").value;
-    if(!member){ show("Member is required"); return; }
-    if(!start||!end){ show("Start and End dates are required"); return; }
-    try{
-      document.getElementById("save").disabled=true;
-      await addDoc(collection(db,"eads_evals"), {
-        member, note: document.getElementById("f_note").value.trim(), start, end,
-        stepIndex: 0, steps: STEP_NAMES, stepsDone: {}, closed:false, createdAt: serverTimestamp()
-      });
-      clearForm(); await load();
-    }catch(e){
-      console.error("SAVE_EVALS", e);
-      show(e.code ? `${e.code}: ${e.message}` : (e.message||String(e)));
-    }finally{
-      document.getElementById("save").disabled=false;
-    }
-  };
-  document.getElementById("update").onclick = async ()=>{
-    if(!SEL) return;
-    try{
-      document.getElementById("update").disabled=true;
-      await updateDoc(doc(db,"eads_evals",SEL), {
-        member: document.getElementById("f_member").value.trim(),
-        note: document.getElementById("f_note").value.trim(),
-        start: document.getElementById("f_start").value,
-        end: document.getElementById("f_end").value
-      });
-      clearForm(); await load();
-    }catch(e){ show(e.message||String(e)); } finally { document.getElementById("update").disabled=false; }
-  };
-  document.getElementById("remove").onclick = async ()=>{
-    if(!SEL) return; if(!confirm("Delete this evaluation?")) return;
-    try{
-      document.getElementById("remove").disabled=true;
-      await deleteDoc(doc(db,"eads_evals",SEL));
-      clearForm(); document.getElementById("detail").style.display="none"; await load();
-    }catch(e){ show(e.message||String(e)); } finally { document.getElementById("remove").disabled=false; }
-  };
-
-  // detail
-  async function openDetail(id){
-    SEL=id;
-    const r = ROWS.find(x=>x.id===id) || (await getDoc(doc(db,"eads_evals",id))).data();
-    r.id=id;
-    document.getElementById("d_title").textContent = "Steps · "+(r.member||"")+" · "+(r.start||"")+" → "+(r.end||"");
-    const pct = progressPct(r.stepIndex||0, r.closed);
-    document.getElementById("d_fill").style.width = pct+"%";
-    document.getElementById("d_fill").style.background = barColor(pct);
-    document.getElementById("d_prog").textContent = pct+"%";
-    document.getElementById("d_suspense").textContent = "Suspense "+(addDaysStr(r.end||"",45)||"—");
-    renderSteps(r);
-    document.getElementById("detail").style.display="block";
-  }
-
-  function renderSteps(rec){
-    const cur = rec.stepIndex||0;
-    const done = rec.stepsDone||{};
-    const container=document.getElementById("steps"); container.innerHTML="";
-    STEP_NAMES.forEach((name,i)=>{
-      const row=document.createElement("div"); row.className="step"+(i===cur && !rec.closed?" current":"");
-      const when = tsToISO(done[i]);
-      const left=document.createElement("div");
-      left.innerHTML = `<div>${i+1}. ${name}</div><div class="muted">${when?("Done "+when):(i===cur&&!rec.closed?"Current":"")}</div>`;
-      const dateWrap=document.createElement("div");
-      dateWrap.innerHTML = `<input type="date" value="${when||""}" id="dt_${i}">`;
-      const btns=document.createElement("div"); btns.className="kit";
-      btns.innerHTML = `
-        <button class="btn" data-set="${i}">Set current</button>
-        <button class="btn" data-save="${i}">Save date</button>
-        ${when? `<button class="btn" data-clear="${i}">Clear date</button>`:''}
-      `;
-      const mini=document.createElement("div");
-      mini.innerHTML = `<div class="bar"><div class="fill" style="width:${(i/LAST_IDX)*100}%;background:#2b6cb0"></div></div>`;
-      row.append(left,dateWrap,btns,mini);
-      container.appendChild(row);
-    });
-
-    container.querySelectorAll('button[data-set]').forEach(b=> b.onclick=()=> setCurrent(rec.id, Number(b.dataset.set)));
-    container.querySelectorAll('button[data-save]').forEach(b=> b.onclick=()=> saveStepDate(rec.id, Number(b.dataset.save)));
-    container.querySelectorAll('button[data-clear]').forEach(b=> b.onclick=()=> clearStepDate(rec.id, Number(b.dataset.clear)));
-
-    document.getElementById("btn_complete").disabled = rec.closed || (rec.stepIndex||0)>=LAST_IDX;
-    document.getElementById("btn_reopen").disabled   = (rec.stepIndex||0)<=0;
-    document.getElementById("btn_close").disabled    = !!rec.closed;
-    document.getElementById("btn_complete").onclick = ()=> completeCurrent(rec.id);
-    document.getElementById("btn_reopen").onclick   = ()=> reopenPrevious(rec.id);
-    document.getElementById("btn_close").onclick    = ()=> closeNow(rec.id);
-  }
-
-  // retro edit dates
-  async function saveStepDate(id, idx){
-    const v = document.getElementById("dt_"+idx).value;
-    if(!v){ show("Pick a date first"); return; }
-    try{
-      const patch = {}; patch["stepsDone."+idx] = v;
-      await updateDoc(doc(db,"eads_evals",id), patch);
-      await recomputePointer(id);
-      await load(); openDetail(id);
-    }catch(e){ show(e.message||String(e)); }
-  }
-  async function clearStepDate(id, idx){
-    try{
-      const patch = {}; patch["stepsDone."+idx] = null;
-      await updateDoc(doc(db,"eads_evals",id), patch);
-      await recomputePointer(id);
-      await load(); openDetail(id);
-    }catch(e){ show(e.message||String(e)); }
-  }
-  async function setCurrent(id, idx){
-    try{
-      const patch = { stepIndex: idx, closed:false };
-      for(let i=idx;i<=LAST_IDX;i++) patch["stepsDone."+i] = null;
-      await updateDoc(doc(db,"eads_evals",id), patch);
-      await load(); openDetail(id);
-    }catch(e){ show(e.message||String(e)); }
-  }
-  async function completeCurrent(id){
-    try{
-      const r = ROWS.find(x=>x.id===id) || {};
-      const idx = r.stepIndex||0;
-      const patch = {};
-      patch["stepsDone."+idx] = serverTimestamp();
-      patch.stepIndex = Math.min(idx+1, LAST_IDX);
-      patch.closed = (idx===LAST_IDX);
-      await updateDoc(doc(db,"eads_evals",id), patch);
-      await load(); openDetail(id);
-    }catch(e){ show(e.message||String(e)); }
-  }
-  async function reopenPrevious(id){
-    try{
-      const r = ROWS.find(x=>x.id===id) || {};
-      const idx = Math.max((r.stepIndex||0)-1, 0);
-      const patch = { stepIndex: idx, closed:false };
-      for(let i=idx;i<=LAST_IDX;i++) patch["stepsDone."+i] = null;
-      await updateDoc(doc(db,"eads_evals",id), patch);
-      await load(); openDetail(id);
-    }catch(e){ show(e.message||String(e)); }
-  }
-  async function closeNow(id){
-    try{
-      const patch = {}; patch["stepsDone."+LAST_IDX] = serverTimestamp();
-      patch.stepIndex = LAST_IDX; patch.closed = true;
-      await updateDoc(doc(db,"eads_evals",id), patch);
-      await load(); openDetail(id);
-    }catch(e){ show(e.message||String(e)); }
-  }
-  async function recomputePointer(id){
-    const snap = await getDoc(doc(db,"eads_evals",id));
-    const r = snap.data()||{};
-    const done = r.stepsDone||{};
-    let idx = 0;
-    while(idx<=LAST_IDX && done[idx]) idx++;
-    const patch = { stepIndex: Math.min(idx,LAST_IDX), closed: idx>LAST_IDX };
-    await updateDoc(doc(db,"eads_evals",id), patch);
-  }
-
-  // events
-  document.getElementById("search").oninput = render;
-  document.getElementById("filter").oninput = render;
-  document.getElementById("sort").oninput   = render;
-  document.getElementById("year").oninput   = render;
-
-  load();
+/* Save manual edits to step dates */
+async function saveStepDates(){
+  if(!SEL) return;
+  const r=ROWS.find(x=>x.id===SEL); if(!r) return;
+  const inputs=[...document.querySelectorAll('#stepsGrid input[type="date"]')];
+  inputs.forEach(inp=>{
+    const i=Number(inp.dataset.idx); r.steps[i].date = inp.value||"";
+  });
+  // recompute curIndex = first step with empty date
+  let ci = r.steps.findIndex(s=>!s.date);
+  if(ci<0) ci=r.steps.length;
+  r.curIndex=ci;
+  try{
+    await updateDoc(doc(db,"eads_evals",SEL), { steps:r.steps, curIndex:r.curIndex });
+    await load(); select(SEL);
+  }catch(e){ showErr(e.message||String(e)); }
+}
 </script>
 </body></html>
