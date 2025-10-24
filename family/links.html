@@ -1,0 +1,223 @@
+<!-- /family-dashboard/family/links.html -->
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Family · Links</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--hi:#2b6cb0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Inter;padding:18px}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
+.btn[disabled]{opacity:.6;cursor:not-allowed}
+.card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+label{font-size:12px;color:var(--muted)}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:1000px){.grid3{grid-template-columns:1fr}}
+.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
+.alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
+.hdr{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.group{margin:10px 0 16px 0}
+.group h3{margin:0 0 8px 0;font-size:14px;color:var(--muted)}
+.gridLinks{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.tile{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#0f1330}
+.tile .go{flex:1;text-align:left}
+.tile .go .title{font-weight:600}
+.tile .go .sub{font-size:12px;color:var(--muted)}
+input[type="search"]{background:#0f1330}
+</style>
+</head>
+<body>
+<header>
+  <div class="hdr">
+    <a class="btn" href="/family-dashboard/family/index.html">&larr; Family</a>
+    <span class="badge">Family Links</span>
+  </div>
+  <div id="auth"></div>
+</header>
+
+<div id="err" class="alert"></div>
+
+<!-- Add / Edit -->
+<div class="card">
+  <div class="grid3">
+    <div><label>Title</label><input id="f_title" placeholder="e.g., Credit Union, School Portal"></div>
+    <div><label>Category</label>
+      <select id="f_cat">
+        <option>Financial</option><option>Schools</option><option>Healthcare</option>
+        <option>Kids</option><option>Shopping</option><option>Utilities</option>
+        <option>Government</option><option selected>Other</option>
+      </select>
+    </div>
+    <div><label>URL</label><input id="f_url" placeholder="https://..."></div>
+  </div>
+  <div class="hdr" style="margin-top:10px">
+    <button class="btn" id="save">Save</button>
+    <button class="btn" id="update" disabled>Update</button>
+    <button class="btn" id="remove" disabled>Delete</button>
+    <span id="sel" class="badge">none</span>
+    <span class="badge" id="count" style="margin-left:auto">0</span>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card">
+  <div class="hdr">
+    <input id="q" type="search" placeholder="Search title, category, url">
+    <select id="sort">
+      <option value="cat-name">Sort: Category · Name</option>
+      <option value="name">Sort: Name</option>
+      <option value="created">Sort: Newest</option>
+    </select>
+    <button class="btn" id="clear">Clear form</button>
+  </div>
+</div>
+
+<!-- Groups -->
+<div id="wrap"></div>
+
+<script type="module">
+import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+const LOGIN="/family-dashboard/main/index.html";
+const COL="family_links";
+
+const $=(s)=>document.querySelector(s);
+const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));
+function showErr(t){ const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none"; }
+
+let ROWS=[], SEL=null;
+
+onAuthStateChanged(auth, async (u)=>{
+  if(!u){ location.href=LOGIN; return; }
+  const c=document.getElementById("auth");
+  c.innerHTML='<span class="badge">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
+  document.getElementById("signout").onclick=(e)=>{e.preventDefault();signOutUser();};
+  bind(); await load();
+});
+
+function bind(){
+  $("#save").onclick=onSave;
+  $("#update").onclick=onUpdate;
+  $("#remove").onclick=onDelete;
+  $("#clear").onclick=clearForm;
+  $("#q").oninput=render;
+  $("#sort").oninput=render;
+}
+
+async function load(){
+  const snap = await getDocs(query(collection(db,COL), orderBy("category","asc"), orderBy("title","asc")));
+  ROWS = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+  $("#count").textContent = ROWS.length+" link(s)";
+  render();
+}
+
+function render(){
+  const q = ($("#q").value||"").toLowerCase();
+  let rows = ROWS.filter(r=>{
+    const hay=(r.title+" "+r.category+" "+r.url).toLowerCase();
+    return !q || hay.includes(q);
+  });
+
+  const mode=$("#sort").value;
+  if(mode==="created"){
+    rows.sort((a,b)=> (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+  }else if(mode==="name"){
+    rows.sort((a,b)=> (a.title||"").localeCompare(b.title||""));
+  }else{
+    rows.sort((a,b)=> (a.category||"").localeCompare(b.category||"") || (a.title||"").localeCompare(b.title||""));
+  }
+
+  const groups = {};
+  rows.forEach(r=>{
+    const k=r.category||"Other";
+    (groups[k]||(groups[k]=[])).push(r);
+  });
+
+  const wrap=$("#wrap"); wrap.innerHTML="";
+  Object.keys(groups).sort().forEach(cat=>{
+    const g=document.createElement("div"); g.className="group";
+    g.innerHTML=`<h3>${esc(cat)}</h3><div class="gridLinks"></div>`;
+    const grid=g.querySelector(".gridLinks");
+    groups[cat].forEach(r=>{
+      const el=document.createElement("div");
+      el.className="tile";
+      el.innerHTML=`
+        <a class="btn go" href="${esc(r.url)}" target="_blank" rel="noopener">
+          <div class="title">${esc(r.title||r.url)}</div>
+          <div class="sub">${esc(r.url)}</div>
+        </a>
+        <div class="actions">
+          <button class="btn edit" data-id="${r.id}">Edit</button>
+          <button class="btn del" data-id="${r.id}">Delete</button>
+        </div>`;
+      grid.appendChild(el);
+    });
+    wrap.appendChild(g);
+  });
+
+  document.querySelectorAll(".edit").forEach(b=> b.onclick=()=> select(b.dataset.id));
+  document.querySelectorAll(".del").forEach(b=> b.onclick=()=> remove(b.dataset.id));
+}
+
+function readForm(){
+  const title=$("#f_title").value.trim();
+  const category=$("#f_cat").value.trim();
+  const url=$("#f_url").value.trim();
+  if(!title){ showErr("Title required"); return null; }
+  if(!url || !/^https?:\/\//i.test(url)){ showErr("Valid URL starting with http(s) required"); return null; }
+  return { title, category, url };
+}
+
+async function onSave(){
+  showErr(""); const data=readForm(); if(!data) return;
+  try{
+    $("#save").disabled=true;
+    await addDoc(collection(db,COL), { ...data, createdAt: serverTimestamp() });
+    clearForm(); await load();
+  }catch(e){ showErr(e.message||String(e)); }
+  finally{ $("#save").disabled=false; }
+}
+
+async function onUpdate(){
+  if(!SEL) return; showErr(""); const data=readForm(); if(!data) return;
+  try{
+    $("#update").disabled=true;
+    await updateDoc(doc(db,COL,SEL), data);
+    clearForm(); await load();
+  }catch(e){ showErr(e.message||String(e)); }
+  finally{ $("#update").disabled=false; }
+}
+
+async function onDelete(){
+  if(!SEL) return;
+  if(!confirm("Delete this link?")) return;
+  try{
+    $("#remove").disabled=true;
+    await deleteDoc(doc(db,COL,SEL));
+    clearForm(); await load();
+  }catch(e){ showErr(e.message||String(e)); }
+  finally{ $("#remove").disabled=false; }
+}
+
+function clearForm(){
+  SEL=null; $("#f_title").value=""; $("#f_cat").value="Other"; $("#f_url").value="";
+  $("#sel").textContent="none"; $("#update").disabled=true; $("#remove").disabled=true;
+}
+
+function select(id){
+  const r=ROWS.find(x=>x.id===id); if(!r) return;
+  SEL=id; $("#sel").textContent="Selected "+id;
+  $("#f_title").value=r.title||""; $("#f_cat").value=r.category||"Other"; $("#f_url").value=r.url||"";
+  $("#update").disabled=false; $("#remove").disabled=false;
+}
+
+async function remove(id){
+  if(!confirm("Delete this link?")) return;
+  try{ await deleteDoc(doc(db,COL,id)); if(SEL===id) clearForm(); await load(); }
+  catch(e){ showErr(e.message||String(e)); }
+}
+</script>
+</body></html>
