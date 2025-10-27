@@ -1,163 +1,178 @@
+<!-- /family-dashboard/finances/ledger.html -->
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Finances · Ledger</title>
-<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<link rel="stylesheet" href="/family-dashboard/css/base.css"/>
 <style>
-:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,Inter;background:var(--bg);color:var(--fg);padding:18px}
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--accent:#2b6cb0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,Inter}
 a{color:inherit;text-decoration:none}
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
-.btn[disabled]{opacity:.6;cursor:not-allowed}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
-.row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px}
-@media(max-width:900px){.row{grid-template-columns:1fr 1fr;row-gap:10px}}
-label{font-size:12px;color:var(--muted)}
-input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
-.kpis{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
-.kpi{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#101832;min-width:150px}
-.kpi .muted{color:var(--muted);font-size:12px}
-table{width:100%;border-collapse:collapse}
-th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
-th{color:var(--muted)}
-.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
-.muted{color:var(--muted);font-size:12px}
-.empty{padding:8px 10px;border:1px dashed var(--line);border-radius:10px;background:#0e1430;color:#b7c6e6}
-</style></head><body>
+header{display:flex;justify-content:space-between;align-items:center;padding:16px}
+.btn{background:#0f1330;border:1px solid var(--line);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.badge{padding:2px 8px;background:#0e1430;border:1px solid var(--line);border-radius:999px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);border-radius:10px;padding:8px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+.table th{color:var(--muted)}
+.right{text-align:right}
+.alert{display:none;background:#2a0f12;color:#ffd6d6;border:1px solid #522;padding:8px;border-radius:10px;margin:0 12px}
+.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{background:#0f1330;border:1px solid var(--line);border-radius:12px;padding:10px}
+.tile h4{margin:0 0 6px 0;font-size:12px;color:var(--muted)}
+.val{font-variant-numeric:tabular-nums;font-size:18px}
+</style>
+</head>
+<body>
 <header>
-  <div><a class="btn" href="/family-dashboard/finances/index.html">&larr; Finances</a></div>
+  <div class="row">
+    <a class="btn" href="/family-dashboard/finances/index.html">&larr; Finances</a>
+    <span class="badge">Ledger</span>
+  </div>
   <div id="auth"></div>
 </header>
 
-<h1>Ledger</h1>
+<div id="err" class="alert"></div>
 
+<!-- Controls -->
 <div class="card">
   <div class="row">
-    <div><label>Start</label><input id="d_start" type="date"></div>
-    <div><label>End</label><input id="d_end" type="date"></div>
-    <div style="align-self:end"><button class="btn" id="btn_range" type="button">Refresh</button></div>
-    <div style="align-self:end"><span id="count" class="badge">0 items</span></div>
+    <label>Start <input id="ledgerStart" type="date"></label>
+    <label>End <input id="ledgerEnd" type="date"></label>
+    <button id="refresh" class="btn">Refresh</button>
+    <button id="exportCsv" class="btn">Export CSV</button>
+    <span class="badge" id="count">0 items</span>
   </div>
-  <div class="kpis" id="kpis"></div>
 </div>
 
+<!-- Totals -->
 <div class="card">
-  <div id="empty" class="empty" style="display:none">No entries in this range.</div>
-  <table id="tbl">
-    <thead><tr>
-      <th>Date</th><th>Type</th><th>Source</th><th>Category</th><th>Amount</th><th>Notes</th>
-    </tr></thead>
-    <tbody></tbody>
+  <div class="totals">
+    <div class="tile"><h4>Total Income</h4><div class="val" id="totIncome">$0.00</div></div>
+    <div class="tile"><h4>Total Expenses + Bills</h4><div class="val" id="totExpense">$0.00</div></div>
+    <div class="tile"><h4>Net</h4><div class="val" id="totNet">$0.00</div></div>
+  </div>
+</div>
+
+<!-- Ledger table -->
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr><th>Date</th><th>Type</th><th>Category/Source</th><th class="right">Amount</th></tr>
+    </thead>
+    <tbody id="ledgerRows"></tbody>
   </table>
 </div>
 
 <script type="module">
-  import { auth, onAuthStateChanged, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
-  import { collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-  const LOGIN="/family-dashboard/main/index.html";
-  onAuthStateChanged(auth,(u)=>{
-    if(!u){ location.href=LOGIN; return; }
-    const c=document.getElementById('auth');
-    c.innerHTML=`<span class="muted">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
-    signout.onclick=(e)=>{e.preventDefault();signOutUser();};
-    init();
-  });
+const LOGIN="/family-dashboard/main/index.html";
+const $ = (s)=>document.querySelector(s);
+const showErr = (t)=>{ const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none"; };
 
-  const $ = (s)=>document.querySelector(s);
-  const iso = (d)=> d.toISOString().slice(0,10);
+onAuthStateChanged(auth,(u)=>{
+  if(!u){ location.href=LOGIN; return; }
+  $("#auth").innerHTML = `<span class="badge">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+  $("#signout").onclick = (e)=>{ e.preventDefault(); signOutUser(); };
+  init();
+});
 
-  function setDefaultRange(){
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    const end   = new Date(today.getFullYear(), today.getMonth()+1, 0);
-    $('#d_start').value = iso(start);
-    $('#d_end').value   = iso(end);
-  }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function monthStartISO(){ const d=new Date(); d.setDate(1); return d.toISOString().slice(0,10); }
+function toISO(d){
+  if(!d) return "";
+  if(typeof d==="string") return d.slice(0,10);
+  if(typeof d.seconds==="number") return new Date(d.seconds*1000).toISOString().slice(0,10);
+  return new Date(d).toISOString().slice(0,10);
+}
+function inRange(iso, a, b){ return iso && iso>=a && iso<=b; }
+function money(n){ return (n<0? "-$"+Math.abs(n).toFixed(2) : "$"+n.toFixed(2)); }
 
-  async function init(){
-    setDefaultRange();
-    $('#btn_range').onclick = refresh;
-    await refresh();
-  }
+async function pullAll(col){
+  const snap = await getDocs(collection(db,col));
+  return snap.docs.map(d=>({ id:d.id, ...d.data() }));
+}
 
-  // get all rows, then filter by date in JS (works for strings or timestamps)
-  async function refresh(){
-    const btn = $('#btn_range'); btn.disabled=true;
-    const startISO = $('#d_start').value;
-    const endISO   = $('#d_end').value;
-    const start = new Date(startISO+'T00:00:00');
-    const end   = new Date(endISO  +'T23:59:59');
+async function loadLedger(){
+  try{
+    showErr("");
+    const startISO = $("#ledgerStart").value;
+    const endISO   = $("#ledgerEnd").value;
 
-    // pull all three collections
-    const [incSnap, expSnap, billSnap] = await Promise.all([
-      getDocs(collection(db,'fin_income')),
-      getDocs(collection(db,'fin_expenses')),
-      getDocs(collection(db,'fin_bills'))
+    const [incomes, expenses, bills] = await Promise.all([
+      pullAll("finance_income"),
+      pullAll("finance_expenses"),
+      pullAll("finance_bills"),
     ]);
 
-    const income = incSnap.docs.map(d=>{
-      const data=d.data();
-      const dt = toDate(data.date);
-      return { id:d.id, type:'Income', dateISO: toISO(dt), date:dt, source:data.source||data.name||'—', cat:data.category||'Income', amt:num(data.amount), notes:data.notes||'' };
+    const inc = incomes.map(r=>{
+      const iso = toISO(r.date || r.receivedDate);
+      const amt = Number(r.amount ?? r.net ?? r.gross ?? 0);
+      return { dateISO: iso, type:"Income", cat:(r.source||r.category||""), amt: isFinite(amt)? amt:0 };
+    }).filter(x=> inRange(x.dateISO,startISO,endISO));
+
+    const exp = expenses.map(r=>{
+      const iso = toISO(r.date || r.postedDate);
+      const amt = Number(r.amount ?? r.total ?? 0);
+      return { dateISO: iso, type:"Expense", cat:(r.category||r.payee||""), amt: isFinite(amt)? -Math.abs(amt):0 };
+    }).filter(x=> inRange(x.dateISO,startISO,endISO));
+
+    const bil = bills.map(r=>{
+      const iso = toISO(r.dueDate || r.date);
+      const amt = Number(r.amount ?? 0);
+      return { dateISO: iso, type:"Bill", cat:(r.name||r.category||""), amt: isFinite(amt)? -Math.abs(amt):0 };
+    }).filter(x=> inRange(x.dateISO,startISO,endISO));
+
+    const rows = [...inc, ...exp, ...bil].sort((a,b)=> a.dateISO.localeCompare(b.dateISO));
+    $("#count").textContent = `${rows.length} item(s)`;
+
+    // render
+    const tbody=$("#ledgerRows"); tbody.innerHTML="";
+    rows.forEach(r=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML = `<td>${r.dateISO}</td><td>${r.type}</td><td>${r.cat}</td><td class="right">${money(r.amt)}</td>`;
+      tbody.appendChild(tr);
     });
 
-    const expenses = expSnap.docs.map(d=>{
-      const data=d.data();
-      const dt = toDate(data.date);
-      return { id:d.id, type:'Expense', dateISO: toISO(dt), date:dt, source:data.source||data.vendor||'—', cat:data.category||'Expense', amt:-Math.abs(num(data.amount)), notes:data.notes||'' };
-    });
+    const totIncome = inc.reduce((s,x)=>s+x.amt,0);
+    const totExpense= [...exp,...bil].reduce((s,x)=>s+(-x.amt),0); // positive total out
+    const net = totIncome - totExpense;
 
-    const bills = billSnap.docs.map(d=>{
-      const data=d.data();
-      const dt = toDate(data.dueDate);
-      const paid = !!data.paid;
-      return { id:d.id, type: paid?'Bill (paid)':'Bill', dateISO: toISO(dt), date:dt, source:data.name||'Bill', cat:data.category||'Bills', amt:-Math.abs(num(data.amount)), notes:(data.notes||'')+(paid?' · paid':'') };
-    });
-
-    // range filter
-    const rows = [...income, ...expenses, ...bills]
-      .filter(r=> r.date && r.date>=start && r.date<=end)
-      .sort((a,b)=> (a.date - b.date) || (a.type>b.type?1:-1));
-
-    $('#count').textContent = `${rows.length} items`;
-
-    // KPIs
-    const sum = rows.reduce((acc,r)=>{ if(r.amt>=0) acc.in+=r.amt; else acc.out+=-r.amt; return acc; }, {in:0,out:0});
-    $('#kpis').innerHTML = [
-      `<div class="kpi"><div class="muted">Income</div><div>$${fmt(sum.in)}</div></div>`,
-      `<div class="kpi"><div class="muted">Expenses</div><div>$${fmt(sum.out)}</div></div>`,
-      `<div class="kpi"><div class="muted">Net</div><div>$${fmt(sum.in - sum.out)}</div></div>`
-    ].join('');
-
-    // table
-    const tb = $('#tbl tbody');
-    tb.innerHTML = rows.map(r=>`<tr>
-      <td>${r.dateISO||''}</td>
-      <td>${r.type}</td>
-      <td>${esc(r.source)}</td>
-      <td>${esc(r.cat)}</td>
-      <td>${money(r.amt)}</td>
-      <td>${esc(r.notes)}</td>
-    </tr>`).join('');
-
-    // empty state
-    $('#empty').style.display = rows.length? 'none':'block';
-    btn.disabled=false;
+    $("#totIncome").textContent  = money(totIncome);
+    $("#totExpense").textContent = money(totExpense);
+    $("#totNet").textContent     = money(net);
+  }catch(e){
+    showErr(e.message||String(e));
   }
+}
 
-  // helpers
-  function toDate(v){
-    if(!v) return null;
-    if(typeof v==='string') return new Date(v+'T12:00:00'); // avoid TZ shift
-    if(v.seconds) return new Date(v.seconds*1000);
-    if(v instanceof Date) return v;
-    return null;
-  }
-  function toISO(d){ return d? d.toISOString().slice(0,10) : ''; }
-  function num(v){ return v==null?0:Number(v); }
-  function fmt(n){ return n.toLocaleString(undefined,{maximumFractionDigits:2}); }
-  function money(n){ const s = n>=0? n : -n; return (n<0?'-':'') + '$' + fmt(s); }
-  function esc(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function exportCsv(){
+  const rows=[["Date","Type","Category/Source","Amount"]];
+  document.querySelectorAll("#ledgerRows tr").forEach(tr=>{
+    const tds=[...tr.querySelectorAll("td")].map(td=> td.textContent.trim());
+    rows.push(tds);
+  });
+  const csv = rows.map(r=> r.map(c=>{
+    const s=String(c??""); return /[",\n]/.test(s)? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(",")).join("\n");
+  const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="ledger.csv"; document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function init(){
+  // default to current month
+  $("#ledgerStart").value = monthStartISO();
+  $("#ledgerEnd").value   = todayISO();
+  $("#refresh").onclick = loadLedger;
+  $("#exportCsv").onclick = exportCsv;
+  // auto load
+  loadLedger();
+}
 </script>
 </body></html>
