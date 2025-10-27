@@ -1,3 +1,4 @@
+<!-- /family-dashboard/family/accounts.html -->
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Family · Account Vault</title>
@@ -122,7 +123,7 @@ import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, serverTimestamp
 const LOGIN="/family-dashboard/main/index.html";
 const COL="vault_entries";       // entries
 const META_COL="vault_meta";     // per-user meta with salt+canary
-const CANARY_TEXT="vault-ok";    // known plaintext to verify passphrase
+const CANARY_TEXT="vault-ok";
 
 const $=(s)=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));
@@ -132,7 +133,7 @@ function ub64(b){return Uint8Array.from(atob(b),c=>c.charCodeAt(0));}
 
 let USER=null, UNLOCKED=false, KEY=null, META_DOC=null, ROWS=[], SEL=null;
 
-// WebCrypto helpers
+// WebCrypto
 async function getKeyFromPass(pass, salt, iters=200000){
   const enc=new TextEncoder();
   const base=await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
@@ -185,27 +186,23 @@ function hintMeta(){
   $("#metaHint").textContent = msg;
 }
 
-// Unlock with canary verification
+// Unlock with canary
 async function unlock(){
   try{
     const pass=$("#passphrase").value;
     if(!pass){ showErr("Enter a passphrase."); return; }
 
-    // Create salt or use existing
     if(!META_DOC){
       const salt=crypto.getRandomValues(new Uint8Array(16));
       KEY = await getKeyFromPass(pass, salt, 200000);
-      // create canary with this key
       const can = await encGCM(KEY, CANARY_TEXT);
       await setDoc(doc(db,META_COL,USER.uid), { salt:b64(salt), iterations:200000, canary:can, createdAt: serverTimestamp() });
       META_DOC={ salt:b64(salt), iterations:200000, canary:can };
     }else{
       const saltBytes = ub64(META_DOC.salt);
       KEY = await getKeyFromPass(pass, saltBytes, META_DOC.iterations||200000);
-      // verify canary; if decrypt fails or text mismatch -> wrong passphrase
       const text = await decGCM(KEY, META_DOC.canary.iv, META_DOC.canary.ct).catch(()=>null);
       if(text !== CANARY_TEXT){
-        // wrong passphrase: show modal and stay locked
         $("#modal").style.display="flex";
         $("#vaultState").textContent="Locked";
         $("#lockBtn").disabled=true;
@@ -215,7 +212,6 @@ async function unlock(){
       }
     }
 
-    // Success → unlock UI
     UNLOCKED=true;
     $("#vaultState").textContent="Unlocked";
     $("#lockBtn").disabled=false;
@@ -225,7 +221,6 @@ async function unlock(){
     await loadRows();
     showErr("");
   }catch(e){
-    // Any error → treat as wrong passphrase
     $("#modal").style.display="flex";
     hideVault();
   }
@@ -242,16 +237,8 @@ function lock(){
   showErr("");
 }
 
-function showVault(){
-  $("#editor").style.display="";
-  $("#filters").style.display="";
-  $("#listWrap").style.display="";
-}
-function hideVault(){
-  $("#editor").style.display="none";
-  $("#filters").style.display="none";
-  $("#listWrap").style.display="none";
-}
+function showVault(){ $("#editor").style.display=""; $("#filters").style.display=""; $("#listWrap").style.display=""; }
+function hideVault(){ $("#editor").style.display="none"; $("#filters").style.display="none"; $("#listWrap").style.display="none"; }
 
 // Data
 async function loadRows(){
@@ -282,6 +269,9 @@ function render(){
       <td>${r.url?`<a class="btn iconbtn" href="${esc(r.url)}" target="_blank" rel="noopener">Open</a>`:""}</td>
       <td class="row">
         <button class="btn iconbtn edit">Edit</button>
+        <button class="btn iconbtn" data-act="copy-user">Copy User</button>
+        <button class="btn iconbtn" data-act="reveal">Reveal</button>
+        <button class="btn iconbtn" data-act="copy-pass">Copy Pass</button>
         <button class="btn iconbtn del">Delete</button>
       </td>
     </tr>
@@ -291,6 +281,9 @@ function render(){
     const id=tr.dataset.id;
     tr.querySelector(".edit").onclick=()=> select(id);
     tr.querySelector(".del").onclick=()=> removeRow(id);
+    tr.querySelector('[data-act="copy-user"]').onclick=()=> copyField(id,"username");
+    tr.querySelector('[data-act="reveal"]').onclick=()=> revealPass(id);
+    tr.querySelector('[data-act="copy-pass"]').onclick=()=> copyPass(id);
   });
 }
 
@@ -318,7 +311,7 @@ function readForm(){
   return { title, username, url, category, notes, plain };
 }
 
-// encrypt/decrypt helpers for passwords
+// encrypt helper
 async function encPwd(plain){ const {iv,ct}=await encGCM(KEY, plain); return {iv,enc:ct}; }
 
 async function onSave(){
@@ -347,7 +340,7 @@ async function onUpdate(){
   }catch(e){ showErr(e.message||String(e)); } finally{ $("#update").disabled=false; }
 }
 
-async function onDelete(){ /* unused button */ }
+async function onDelete(){}
 
 async function removeRow(id){
   if(!confirm("Delete this entry?")) return;
@@ -358,6 +351,27 @@ async function removeRow(id){
 function clearForm(){
   SEL=null; $("#sel").textContent="none"; $("#update").disabled=true; $("#remove").disabled=true;
   $("#f_title").value=""; $("#f_user").value=""; $("#f_url").value=""; $("#f_cat").value="Other"; $("#f_notes").value=""; $("#f_pass").value="";
+}
+
+// reveal/copy
+async function revealPass(id){
+  try{
+    const r=ROWS.find(x=>x.id===id); if(!r){ showErr("Not found"); return; }
+    if(!r.enc){ alert("No password stored."); return; }
+    const plain = await decGCM(KEY, r.iv, r.enc);
+    alert("Password: "+plain);
+  }catch(e){ showErr("Decrypt failed. Wrong passphrase?"); }
+}
+async function copyPass(id){
+  try{
+    const r=ROWS.find(x=>x.id===id); if(!r || !r.enc){ showErr("No password to copy."); return; }
+    const plain = await decGCM(KEY, r.iv, r.enc);
+    await navigator.clipboard.writeText(plain);
+  }catch(e){ showErr("Copy failed."); }
+}
+async function copyField(id, field){
+  const r=ROWS.find(x=>x.id===id); if(!r) return;
+  await navigator.clipboard.writeText(r[field]||"");
 }
 </script>
 </body></html>
