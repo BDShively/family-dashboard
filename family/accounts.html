@@ -1,10 +1,9 @@
-<!-- /family-dashboard/family/accounts.html -->
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Family · Account Vault</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css">
 <style>
-:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--accent:#2b6cb0}
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Inter;padding:18px}
 a{color:inherit;text-decoration:none}
 header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
@@ -23,6 +22,12 @@ input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:
 .alert{display:none;padding:10px;border:1px solid #522;background:#2a0f12;color:#ffd6d6;border-radius:10px}
 .muted{color:var(--muted);font-size:12px}
 .iconbtn{padding:6px 8px}
+
+/* Modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9999}
+.modal .panel{background:#111832;border:1px solid var(--line);border-radius:14px;padding:16px;max-width:420px;width:92%}
+.modal .panel h3{margin:0 0 8px 0}
+.modal .panel p{margin:0 0 12px 0;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -40,7 +45,7 @@ input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:
 <div class="card" id="vaultLock">
   <div class="row" style="justify-content:space-between">
     <div>
-      <div class="muted">Enter your vault passphrase. It is never sent to Firestore.</div>
+      <div class="muted">Enter your vault passphrase. It never leaves this browser.</div>
       <div class="grid2" style="margin-top:8px">
         <input id="passphrase" type="password" placeholder="Vault passphrase">
         <div class="row">
@@ -86,7 +91,6 @@ input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:
       <option value="title">Sort: Title</option>
       <option value="created">Sort: Newest</option>
     </select>
-    <button class="btn" id="exportEnc">Export (encrypted JSON)</button>
   </div>
 </div>
 
@@ -100,13 +104,25 @@ input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:
   </table>
 </div>
 
+<!-- Wrong passphrase modal -->
+<div id="modal" class="modal">
+  <div class="panel">
+    <h3>Incorrect passphrase</h3>
+    <p>The passphrase does not match this vault. Try again.</p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" id="modalClose">OK</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, serverTimestamp, setDoc, getDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 const LOGIN="/family-dashboard/main/index.html";
-const COL="vault_entries";     // entries
-const META="vault_meta";       // per-user salt & params
+const COL="vault_entries";       // entries
+const META_COL="vault_meta";     // per-user meta with salt+canary
+const CANARY_TEXT="vault-ok";    // known plaintext to verify passphrase
 
 const $=(s)=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));
@@ -116,7 +132,7 @@ function ub64(b){return Uint8Array.from(atob(b),c=>c.charCodeAt(0));}
 
 let USER=null, UNLOCKED=false, KEY=null, META_DOC=null, ROWS=[], SEL=null;
 
-// --- WebCrypto helpers ---
+// WebCrypto helpers
 async function getKeyFromPass(pass, salt, iters=200000){
   const enc=new TextEncoder();
   const base=await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
@@ -125,18 +141,18 @@ async function getKeyFromPass(pass, salt, iters=200000){
     base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]
   );
 }
-async function encPwd(key, plaintext){
+async function encGCM(key, plaintext){
   const iv=crypto.getRandomValues(new Uint8Array(12));
   const ct=await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, new TextEncoder().encode(plaintext));
   return { iv:b64(iv), ct:b64(ct) };
 }
-async function decPwd(key, ivB64, ctB64){
+async function decGCM(key, ivB64, ctB64){
   const iv=ub64(ivB64);
   const pt=await crypto.subtle.decrypt({name:"AES-GCM", iv}, key, ub64(ctB64));
   return new TextDecoder().decode(pt);
 }
 
-// --- Auth gate ---
+// Auth
 onAuthStateChanged(auth, async (u)=>{
   if(!u){ location.href=LOGIN; return; }
   USER=u;
@@ -144,6 +160,7 @@ onAuthStateChanged(auth, async (u)=>{
   $("#signout").onclick=(e)=>{e.preventDefault();signOutUser();};
   $("#unlockBtn").onclick=unlock;
   $("#lockBtn").onclick=lock;
+  $("#modalClose").onclick=()=>{$("#modal").style.display="none"; $("#passphrase").focus();}
   bindUI();
   await loadMeta();
   hintMeta();
@@ -155,42 +172,63 @@ function bindUI(){
   $("#remove").onclick=onDelete;
   $("#q").oninput=render;
   $("#sort").oninput=render;
-  $("#exportEnc").onclick=exportEncrypted;
 }
 
 async function loadMeta(){
-  const ref=doc(db,META,USER.uid);
+  const ref=doc(db,META_COL,USER.uid);
   const snap=await getDoc(ref);
   if(snap.exists()){ META_DOC=snap.data(); }
 }
 
 function hintMeta(){
-  const created = META_DOC? "Existing vault. Enter passphrase to unlock." : "First unlock will initialize vault salt.";
-  $("#metaHint").textContent = created;
+  const msg = META_DOC? "Existing vault. Enter passphrase to unlock." : "First unlock will initialize your vault.";
+  $("#metaHint").textContent = msg;
 }
 
+// Unlock with canary verification
 async function unlock(){
   try{
     const pass=$("#passphrase").value;
     if(!pass){ showErr("Enter a passphrase."); return; }
+
+    // Create salt or use existing
     if(!META_DOC){
-      // initialize per-user salt
       const salt=crypto.getRandomValues(new Uint8Array(16));
-      await setDoc(doc(db,META,USER.uid), { salt:b64(salt), iterations:200000, createdAt: serverTimestamp() });
-      META_DOC={ salt:b64(salt), iterations:200000 };
+      KEY = await getKeyFromPass(pass, salt, 200000);
+      // create canary with this key
+      const can = await encGCM(KEY, CANARY_TEXT);
+      await setDoc(doc(db,META_COL,USER.uid), { salt:b64(salt), iterations:200000, canary:can, createdAt: serverTimestamp() });
+      META_DOC={ salt:b64(salt), iterations:200000, canary:can };
+    }else{
+      const saltBytes = ub64(META_DOC.salt);
+      KEY = await getKeyFromPass(pass, saltBytes, META_DOC.iterations||200000);
+      // verify canary; if decrypt fails or text mismatch -> wrong passphrase
+      const text = await decGCM(KEY, META_DOC.canary.iv, META_DOC.canary.ct).catch(()=>null);
+      if(text !== CANARY_TEXT){
+        // wrong passphrase: show modal and stay locked
+        $("#modal").style.display="flex";
+        $("#vaultState").textContent="Locked";
+        $("#lockBtn").disabled=true;
+        $("#unlockBtn").disabled=false;
+        hideVault();
+        return;
+      }
     }
-    const saltBytes = ub64(META_DOC.salt);
-    KEY = await getKeyFromPass(pass, saltBytes, META_DOC.iterations||200000);
+
+    // Success → unlock UI
     UNLOCKED=true;
     $("#vaultState").textContent="Unlocked";
     $("#lockBtn").disabled=false;
     $("#unlockBtn").disabled=true;
     $("#passphrase").value="";
-    $("#editor").style.display="";
-    $("#filters").style.display="";
-    $("#listWrap").style.display="";
+    showVault();
     await loadRows();
-  }catch(e){ showErr(e.message||String(e)); }
+    showErr("");
+  }catch(e){
+    // Any error → treat as wrong passphrase
+    $("#modal").style.display="flex";
+    hideVault();
+  }
 }
 
 function lock(){
@@ -198,14 +236,24 @@ function lock(){
   $("#vaultState").textContent="Locked";
   $("#lockBtn").disabled=true;
   $("#unlockBtn").disabled=false;
-  $("#editor").style.display="none";
-  $("#filters").style.display="none";
-  $("#listWrap").style.display="none";
+  hideVault();
   $("#tbl").innerHTML="";
   $("#count").textContent="0";
   showErr("");
 }
 
+function showVault(){
+  $("#editor").style.display="";
+  $("#filters").style.display="";
+  $("#listWrap").style.display="";
+}
+function hideVault(){
+  $("#editor").style.display="none";
+  $("#filters").style.display="none";
+  $("#listWrap").style.display="none";
+}
+
+// Data
 async function loadRows(){
   const qref=query(collection(db,COL), orderBy("category","asc"), orderBy("title","asc"));
   const snap=await getDocs(qref);
@@ -231,25 +279,18 @@ function render(){
       <td>${esc(r.title||"")}</td>
       <td>${esc(r.username||"")}</td>
       <td>${esc(r.category||"")}</td>
-      <td>${r.url?`<a class="btn iconbtn" href="${esc(r.url)}" target="_blank">Open</a>`:""}</td>
+      <td>${r.url?`<a class="btn iconbtn" href="${esc(r.url)}" target="_blank" rel="noopener">Open</a>`:""}</td>
       <td class="row">
         <button class="btn iconbtn edit">Edit</button>
-        <button class="btn iconbtn" data-act="copy-user">Copy User</button>
-        <button class="btn iconbtn" data-act="reveal">Reveal</button>
-        <button class="btn iconbtn" data-act="copy-pass">Copy Pass</button>
         <button class="btn iconbtn del">Delete</button>
       </td>
     </tr>
   `).join("");
 
-  // wire actions
   document.querySelectorAll("#tbl tr").forEach(tr=>{
     const id=tr.dataset.id;
     tr.querySelector(".edit").onclick=()=> select(id);
     tr.querySelector(".del").onclick=()=> removeRow(id);
-    tr.querySelector('[data-act="copy-user"]').onclick=()=> copyField(id,"username");
-    tr.querySelector('[data-act="reveal"]').onclick=()=> revealPass(id);
-    tr.querySelector('[data-act="copy-pass"]').onclick=()=> copyPass(id);
   });
 }
 
@@ -261,7 +302,7 @@ function select(id){
   $("#f_url").value=r.url||"";
   $("#f_cat").value=r.category||"Other";
   $("#f_notes").value=r.notes||"";
-  $("#f_pass").value=""; // never auto-fill
+  $("#f_pass").value="";
   $("#update").disabled=false; $("#remove").disabled=false;
 }
 
@@ -277,20 +318,21 @@ function readForm(){
   return { title, username, url, category, notes, plain };
 }
 
+// encrypt/decrypt helpers for passwords
+async function encPwd(plain){ const {iv,ct}=await encGCM(KEY, plain); return {iv,enc:ct}; }
+
 async function onSave(){
   if(!UNLOCKED){ showErr("Unlock vault first."); return; }
   const f=readForm(); if(!f) return;
   try{
     $("#save").disabled=true;
-    const enc = f.plain ? await encPwd(KEY, f.plain) : {iv:"", ct:""};
+    const enc = f.plain ? await encPwd(f.plain) : {iv:"", enc:""};
     await addDoc(collection(db,COL), {
       title:f.title, username:f.username, url:f.url, category:f.category, notes:f.notes,
-      iv: enc.iv, enc: enc.ct, ver:1,
-      createdAt: serverTimestamp()
+      iv: enc.iv, enc: enc.enc, ver:1, createdAt: serverTimestamp()
     });
     clearForm(); await loadRows();
-  }catch(e){ showErr(e.message||String(e)); }
-  finally{ $("#save").disabled=false; }
+  }catch(e){ showErr(e.message||String(e)); } finally{ $("#save").disabled=false; }
 }
 
 async function onUpdate(){
@@ -298,18 +340,14 @@ async function onUpdate(){
   const f=readForm(); if(!f) return;
   try{
     $("#update").disabled=true;
-    let patch = { title:f.title, username:f.username, url:f.url, category:f.category, notes:f.notes };
-    if(f.plain){
-      const enc = await encPwd(KEY, f.plain);
-      patch.iv = enc.iv; patch.enc = enc.ct; patch.ver=1;
-    }
+    const patch={ title:f.title, username:f.username, url:f.url, category:f.category, notes:f.notes };
+    if(f.plain){ const enc=await encPwd(f.plain); patch.iv=enc.iv; patch.enc=enc.enc; patch.ver=1; }
     await updateDoc(doc(db,COL,SEL), patch);
     await loadRows(); select(SEL);
-  }catch(e){ showErr(e.message||String(e)); }
-  finally{ $("#update").disabled=false; }
+  }catch(e){ showErr(e.message||String(e)); } finally{ $("#update").disabled=false; }
 }
 
-async function onDelete(){ /* unused */ }
+async function onDelete(){ /* unused button */ }
 
 async function removeRow(id){
   if(!confirm("Delete this entry?")) return;
@@ -321,29 +359,5 @@ function clearForm(){
   SEL=null; $("#sel").textContent="none"; $("#update").disabled=true; $("#remove").disabled=true;
   $("#f_title").value=""; $("#f_user").value=""; $("#f_url").value=""; $("#f_cat").value="Other"; $("#f_notes").value=""; $("#f_pass").value="";
 }
-
-async function revealPass(id){
-  try{
-    const r=ROWS.find(x=>x.id===id); if(!r) return;
-    if(!r.enc){ alert("No password stored."); return; }
-    const plain = await decPwd(KEY, r.iv, r.enc);
-    alert("Password: "+plain); // simple reveal; change to a modal if preferred
-  }catch(e){ showErr("Decrypt failed. Wrong passphrase?"); }
-}
-
-async function copyPass(id){
-  try{
-    const r=ROWS.find(x=>x.id===id); if(!r) return;
-    if(!r.enc){ showErr("No password stored."); return; }
-    const plain = await decPwd(KEY, r.iv, r.enc);
-    await navigator.clipboard.writeText(plain);
-  }catch(e){ showErr("Decrypt or copy failed."); }
-}
-
-async function copyField(id, field){
-  const r=ROWS.find(x=>x.id===id); if(!r) return;
-  await navigator.clipboard.writeText(r[field]||"");
-}
-
 </script>
 </body></html>
