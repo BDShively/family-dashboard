@@ -4,7 +4,7 @@
 <title>Finances · Ledger</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css"/>
 <style>
-:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--accent:#2b6cb0}
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,Inter}
 a{color:inherit;text-decoration:none}
 header{display:flex;justify-content:space-between;align-items:center;padding:16px}
@@ -23,6 +23,7 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
 .tile{background:#0f1330;border:1px solid var(--line);border-radius:12px;padding:10px}
 .tile h4{margin:0 0 6px 0;font-size:12px;color:var(--muted)}
 .val{font-variant-numeric:tabular-nums;font-size:18px}
+.small{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -36,7 +37,6 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
 
 <div id="err" class="alert"></div>
 
-<!-- Controls -->
 <div class="card">
   <div class="row">
     <label>Start <input id="ledgerStart" type="date"></label>
@@ -45,18 +45,17 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
     <button id="exportCsv" class="btn">Export CSV</button>
     <span class="badge" id="count">0 items</span>
   </div>
+  <div class="small">Recurring support: monthly, weekly, biweekly, quarterly, yearly, semi-monthly (day1/day2). Fields tolerated: <code>recurring:true</code> or <code>frequency</code>, plus anchors like <code>anchorDate</code> or <code>startDate</code>, and <code>dayOfMonth</code> or <code>day1/day2</code>, optional <code>endDate</code>.</div>
 </div>
 
-<!-- Totals -->
 <div class="card">
   <div class="totals">
     <div class="tile"><h4>Total Income</h4><div class="val" id="totIncome">$0.00</div></div>
-    <div class="tile"><h4>Total Expenses + Bills</h4><div class="val" id="totExpense">$0.00</div></div>
+    <div class="tile"><h4>Total Expenses + Bills + Debts</h4><div class="val" id="totExpense">$0.00</div></div>
     <div class="tile"><h4>Net</h4><div class="val" id="totNet">$0.00</div></div>
   </div>
 </div>
 
-<!-- Ledger table -->
 <div class="card">
   <table class="table">
     <thead>
@@ -81,6 +80,7 @@ onAuthStateChanged(auth,(u)=>{
   init();
 });
 
+/* Dates */
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 function monthStartISO(){ const d=new Date(); d.setDate(1); return d.toISOString().slice(0,10); }
 function toISO(d){
@@ -89,9 +89,71 @@ function toISO(d){
   if(typeof d.seconds==="number") return new Date(d.seconds*1000).toISOString().slice(0,10);
   return new Date(d).toISOString().slice(0,10);
 }
-function inRange(iso, a, b){ return iso && iso>=a && iso<=b; }
-function money(n){ return (n<0? "-$"+Math.abs(n).toFixed(2) : "$"+n.toFixed(2)); }
+function parseISO(s){ const d=new Date(s); d.setHours(0,0,0,0); return d; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function addMonths(d,n){ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; }
+function setDOM(d,day){ const x=new Date(d); x.setDate(Math.min(day, daysInMonth(x))); return x; }
+function daysInMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); }
+function clampToRange(dt, end){ return dt<=end; }
+function inRangeISO(iso, a, b){ return iso && iso>=a && iso<=b; }
+function money(n){ const s = Number(n)||0; return s<0? "-$"+Math.abs(s).toFixed(2) : "$"+s.toFixed(2); }
 
+/* Recurrence generator */
+function* genOccurrences(cfg, startISO, endISO){
+  // cfg: {anchorISO,startISO,endISO,frequency,interval,dayOfMonth,day1,day2,weekday}
+  const start=parseISO(startISO), end=parseISO(endISO);
+  const freq=(cfg.frequency||cfg.freq||"").toLowerCase();
+  const interval = Number(cfg.interval||1)||1;
+  const hardEnd = cfg.endISO ? parseISO(cfg.endISO) : null;
+
+  if(freq==="semi-monthly" || freq==="semimonthly" || (cfg.day1 && cfg.day2)){
+    const day1 = Number(cfg.day1||1), day2=Number(cfg.day2||15);
+    // anchor month = max of provided anchor/start
+    let cur = cfg.anchorISO ? parseISO(cfg.anchorISO) : (cfg.startISO? parseISO(cfg.startISO) : start);
+    // align to first of month
+    cur = new Date(cur.getFullYear(), cur.getMonth(), 1);
+    while(cur<=end && (!hardEnd || cur<=hardEnd)){
+      const d1 = setDOM(cur, day1);
+      const d2 = setDOM(cur, day2);
+      if(d1>=start && d1<=end && (!hardEnd || d1<=hardEnd)) yield toISO(d1);
+      if(d2>=start && d2<=end && (!hardEnd || d2<=hardEnd)) yield toISO(d2);
+      cur = addMonths(cur, 1*interval);
+    }
+    return;
+  }
+
+  // pick anchor date
+  let anchor = cfg.anchorISO ? parseISO(cfg.anchorISO)
+             : cfg.startISO ? parseISO(cfg.startISO)
+             : start;
+  // for monthly-like with dayOfMonth
+  if((freq==="monthly"||freq==="quarterly"||freq==="yearly") && cfg.dayOfMonth){
+    anchor = setDOM(anchor, Number(cfg.dayOfMonth));
+  }
+
+  let cur = anchor;
+  // advance cur forward until >= start
+  while(cur < start){
+    if(freq==="weekly") cur = addDays(cur, 7*interval);
+    else if(freq==="biweekly") cur = addDays(cur, 14*interval);
+    else if(freq==="monthly") cur = addMonths(cur, 1*interval);
+    else if(freq==="quarterly") cur = addMonths(cur, 3*interval);
+    else if(freq==="yearly") cur = addMonths(cur, 12*interval);
+    else break;
+  }
+
+  while(cur<=end && (!hardEnd || cur<=hardEnd)){
+    yield toISO(cur);
+    if(freq==="weekly") cur = addDays(cur, 7*interval);
+    else if(freq==="biweekly") cur = addDays(cur, 14*interval);
+    else if(freq==="monthly") cur = addMonths(cur, 1*interval);
+    else if(freq==="quarterly") cur = addMonths(cur, 3*interval);
+    else if(freq==="yearly") cur = addMonths(cur, 12*interval);
+    else break;
+  }
+}
+
+/* Firestore pulls */
 async function pullAll(col){
   const snap = await getDocs(collection(db,col));
   return snap.docs.map(d=>({ id:d.id, ...d.data() }));
@@ -103,34 +165,101 @@ async function loadLedger(){
     const startISO = $("#ledgerStart").value;
     const endISO   = $("#ledgerEnd").value;
 
-    const [incomes, expenses, bills] = await Promise.all([
-      pullAll("finances_income"),
-      pullAll("finances_expenses"),
-      pullAll("finances_bills"),
+    const [incomes, expenses, bills, debts] = await Promise.all([
+      pullAll("finance_income"),
+      pullAll("finance_expenses"),
+      pullAll("finance_bills"),
+      pullAll("finance_debts")
     ]);
 
+    // Income (one-off)
     const inc = incomes.map(r=>{
       const iso = toISO(r.date || r.receivedDate);
       const amt = Number(r.amount ?? r.net ?? r.gross ?? 0);
       return { dateISO: iso, type:"Income", cat:(r.source||r.category||""), amt: isFinite(amt)? amt:0 };
-    }).filter(x=> inRange(x.dateISO,startISO,endISO));
+    }).filter(x=> inRangeISO(x.dateISO,startISO,endISO));
 
-    const exp = expenses.map(r=>{
+    // Expenses (one-off or recurring)
+    const expOne = expenses.filter(r=>!(r.recurring||r.frequency)).map(r=>{
       const iso = toISO(r.date || r.postedDate);
       const amt = Number(r.amount ?? r.total ?? 0);
       return { dateISO: iso, type:"Expense", cat:(r.category||r.payee||""), amt: isFinite(amt)? -Math.abs(amt):0 };
-    }).filter(x=> inRange(x.dateISO,startISO,endISO));
+    }).filter(x=> inRangeISO(x.dateISO,startISO,endISO));
 
-    const bil = bills.map(r=>{
-      const iso = toISO(r.dueDate || r.date);
-      const amt = Number(r.amount ?? 0);
-      return { dateISO: iso, type:"Bill", cat:(r.name||r.category||""), amt: isFinite(amt)? -Math.abs(amt):0 };
-    }).filter(x=> inRange(x.dateISO,startISO,endISO));
+    const expRec = expenses.filter(r=> (r.recurring||r.frequency)).flatMap(r=>{
+      const amount = Number(r.amount ?? r.total ?? 0);
+      const cfg = {
+        frequency: (r.frequency||"").toLowerCase(),
+        interval: r.interval||1,
+        anchorISO: toISO(r.anchorDate||r.startDate||r.date),
+        startISO: toISO(r.startDate||r.date),
+        endISO: toISO(r.endDate),
+        dayOfMonth: r.dayOfMonth,
+        day1: r.day1, day2: r.day2
+      };
+      const rows=[];
+      for(const iso of genOccurrences(cfg,startISO,endISO)){
+        rows.push({ dateISO: iso, type:"Expense", cat:(r.category||r.payee||""), amt: -Math.abs(Number(amount)||0) });
+      }
+      return rows;
+    });
 
-    const rows = [...inc, ...exp, ...bil].sort((a,b)=> a.dateISO.localeCompare(b.dateISO));
+    // Bills (mostly recurring)
+    const billRows = bills.flatMap(r=>{
+      const amount = Number(r.amount ?? 0);
+      const isRec = r.recurring || r.frequency;
+      if(!isRec){
+        const iso = toISO(r.dueDate || r.date);
+        if(!inRangeISO(iso,startISO,endISO)) return [];
+        return [{ dateISO: iso, type:"Bill", cat:(r.name||r.category||""), amt: -Math.abs(amount) }];
+      }
+      const cfg = {
+        frequency: (r.frequency||"").toLowerCase() || "monthly",
+        interval: r.interval||1,
+        anchorISO: toISO(r.anchorDate||r.startDate||r.dueDate||r.date),
+        startISO: toISO(r.startDate||r.dueDate||r.date),
+        endISO: toISO(r.endDate),
+        dayOfMonth: r.dayOfMonth,
+        day1: r.day1, day2: r.day2
+      };
+      const rows=[];
+      for(const iso of genOccurrences(cfg,startISO,endISO)){
+        rows.push({ dateISO: iso, type:"Bill", cat:(r.name||r.category||""), amt: -Math.abs(Number(amount)||0) });
+      }
+      return rows;
+    });
+
+    // Debts (scheduled payments)
+    const debtRows = debts.flatMap(r=>{
+      const amount = Number(r.paymentAmount ?? r.amount ?? 0);
+      const isRec = r.recurring || r.frequency || r.paymentDay || r.dayOfMonth;
+      if(!isRec){
+        const iso = toISO(r.date || r.nextDue);
+        if(!inRangeISO(iso,startISO,endISO)) return [];
+        return [{ dateISO: iso, type:"Debt", cat:(r.name||r.lender||"Debt"), amt: -Math.abs(amount) }];
+      }
+      const cfg = {
+        frequency: (r.frequency||"").toLowerCase() || "monthly",
+        interval: r.interval||1,
+        anchorISO: toISO(r.anchorDate||r.startDate||r.nextDue||r.date),
+        startISO: toISO(r.startDate||r.date||r.nextDue),
+        endISO: toISO(r.endDate),
+        dayOfMonth: r.dayOfMonth || r.paymentDay,
+        day1: r.day1, day2: r.day2
+      };
+      const rows=[];
+      for(const iso of genOccurrences(cfg,startISO,endISO)){
+        rows.push({ dateISO: iso, type:"Debt", cat:(r.name||r.lender||"Debt"), amt: -Math.abs(Number(amount)||0) });
+      }
+      return rows;
+    });
+
+    const rows = [...inc, ...expOne, ...expRec, ...billRows, ...debtRows]
+      .filter(x=> x.dateISO) // safety
+      .sort((a,b)=> a.dateISO.localeCompare(b.dateISO));
+
     $("#count").textContent = `${rows.length} item(s)`;
 
-    // render
     const tbody=$("#ledgerRows"); tbody.innerHTML="";
     rows.forEach(r=>{
       const tr=document.createElement("tr");
@@ -139,11 +268,11 @@ async function loadLedger(){
     });
 
     const totIncome = inc.reduce((s,x)=>s+x.amt,0);
-    const totExpense= [...exp,...bil].reduce((s,x)=>s+(-x.amt),0); // positive total out
-    const net = totIncome - totExpense;
+    const totOut = rows.filter(r=>r.amt<0).reduce((s,x)=>s+(-x.amt),0);
+    const net = totIncome - totOut;
 
     $("#totIncome").textContent  = money(totIncome);
-    $("#totExpense").textContent = money(totExpense);
+    $("#totExpense").textContent = money(totOut);
     $("#totNet").textContent     = money(net);
   }catch(e){
     showErr(e.message||String(e));
@@ -166,12 +295,10 @@ function exportCsv(){
 }
 
 function init(){
-  // default to current month
   $("#ledgerStart").value = monthStartISO();
   $("#ledgerEnd").value   = todayISO();
   $("#refresh").onclick = loadLedger;
   $("#exportCsv").onclick = exportCsv;
-  // auto load
   loadLedger();
 }
 </script>
