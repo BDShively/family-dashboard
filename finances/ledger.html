@@ -166,10 +166,10 @@ async function loadLedger(){
     const endISO   = $("#ledgerEnd").value;
 
     const [incomes, expenses, bills, debts] = await Promise.all([
-      pullAll("finance_income"),
-      pullAll("finance_expenses"),
-      pullAll("finance_bills"),
-      pullAll("finance_debts")
+      pullAll("finances_income"),
+      pullAll("finances_expenses"),
+      pullAll("finances_bills"),
+      pullAll("finances_debts")
     ]);
 
     // Income (one-off)
