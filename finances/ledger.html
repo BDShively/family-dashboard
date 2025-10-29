@@ -15,12 +15,13 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
 .table{width:100%;border-collapse:collapse}
 .table th,.table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
 .table th{color:var(--muted)}
-.right{text-align:right}.small{font-size:12px;color:var(--muted)}
+.right{text-align:right}
 .alert{display:none;background:#2a0f12;color:#ffd6d6;border:1px solid #522;padding:8px;border-radius:10px;margin:0 12px}
 .totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .tile{background:#0f1330;border:1px solid var(--line);border-radius:12px;padding:10px}
 .tile h4{margin:0 0 6px 0;font-size:12px;color:var(--muted)}
 .val{font-variant-numeric:tabular-nums;font-size:18px}
+.small{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -43,7 +44,7 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
     <span class="badge" id="count">0 items</span>
     <span class="badge" id="dbg">—</span>
   </div>
-  <div class="small">Uses collections: <code>finances_income</code>, <code>finances_expenses</code>, <code>finances_bills</code>, <code>finances_debts</code>.</div>
+  <div class="small">Collections used: <code>finances_income</code>, <code>finances_expenses</code>, <code>finances_bills</code>, <code>finances_debts</code>. Dates accepted: Firestore Timestamp, <code>YYYY-MM-DD</code>, or <code>MM/DD/YYYY</code>.</div>
 </div>
 
 <div class="card">
@@ -66,194 +67,203 @@ import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 const LOGIN="/family-dashboard/main/index.html";
-const $ = (s)=>document.querySelector(s);
-const showErr = (t)=>{ const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none"; };
+const $=(s)=>document.querySelector(s);
+const showErr=(t)=>{const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none";};
 
-onAuthStateChanged(auth,(u)=>{
-  if(!u){ location.href=LOGIN; return; }
-  $("#auth").innerHTML = `<span class="badge">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
-  $("#signout").onclick = (e)=>{ e.preventDefault(); signOutUser(); };
-  init();
-});
-
-/* date utils */
-function todayISO(){ return new Date().toISOString().slice(0,10); }
-function monthStartISO(){ const d=new Date(); d.setDate(1); return d.toISOString().slice(0,10); }
-function toISO(d){
-  if(!d) return "";
-  if(typeof d==="string") return d.slice(0,10);
-  if(typeof d.seconds==="number") return new Date(d.seconds*1000).toISOString().slice(0,10);
-  return new Date(d).toISOString().slice(0,10);
+/* ---- robust date helpers ---- */
+function toDate(v){
+  if(!v) return null;
+  if(typeof v==="object" && typeof v.seconds==="number"){ // Firestore Timestamp
+    const d=new Date(v.seconds*1000); d.setHours(0,0,0,0); return d;
+  }
+  if(v instanceof Date){ const d=new Date(v); d.setHours(0,0,0,0); return d; }
+  if(typeof v==="number"){ const d=new Date(v); d.setHours(0,0,0,0); return d; }
+  if(typeof v==="string"){
+    // ISO YYYY-MM-DD or full ISO
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)){ const d=new Date(v); d.setHours(0,0,0,0); return d; }
+    // US MM/DD/YYYY
+    if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)){
+      const [m,d,y]=v.split("/").map(Number); const dd=new Date(y,m-1,d); dd.setHours(0,0,0,0); return dd;
+    }
+    // fallback parse
+    const d=new Date(v); if(!isNaN(+d)){ d.setHours(0,0,0,0); return d; }
+  }
+  return null;
 }
-function parseISO(s){ const d=new Date(s); d.setHours(0,0,0,0); return d; }
+function fmtISO(d){ return d? new Date(d).toISOString().slice(0,10):""; }
+function inRangeDate(d, a, b){ return d && d>=a && d<=b; }
+function money(n){ const s=Number(n)||0; return s<0? "-$"+Math.abs(s).toFixed(2):"$"+s.toFixed(2); }
+
+/* recurrence utils */
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function addMonths(d,n){ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; }
-function setDOM(d,day){ const x=new Date(d); x.setDate(Math.min(day, new Date(x.getFullYear(), x.getMonth()+1, 0).getDate())); return x; }
-function inRangeISO(iso, a, b){ return iso && iso>=a && iso<=b; }
-function money(n){ const s = Number(n)||0; return s<0? "-$"+Math.abs(s).toFixed(2) : "$"+s.toFixed(2); }
-
-/* recurrence */
-function* genOccurrences(cfg, startISO, endISO){
-  const start=parseISO(startISO), end=parseISO(endISO);
+function setDOM(d,day){ const x=new Date(d); const dim=new Date(x.getFullYear(),x.getMonth()+1,0).getDate(); x.setDate(Math.min(day,dim)); return x; }
+function* genOccurrences(cfg, startD, endD){
   const freq=(cfg.frequency||"").toLowerCase();
   const interval=Number(cfg.interval||1)||1;
-  const hardEnd = cfg.endISO ? parseISO(cfg.endISO) : null;
+  const hardEnd = cfg.endD || null;
 
-  if(freq==="semi-monthly" || freq==="semimonthly" || (cfg.day1 && cfg.day2)){
-    const day1=Number(cfg.day1||1), day2=Number(cfg.day2||15);
-    let cur = cfg.anchorISO ? parseISO(cfg.anchorISO) : (cfg.startISO? parseISO(cfg.startISO) : start);
+  if(freq==="semi-monthly"||freq==="semimonthly"||(cfg.day1&&cfg.day2)){
+    let cur = cfg.anchorD || cfg.startD || startD;
     cur = new Date(cur.getFullYear(), cur.getMonth(), 1);
-    while(cur<=end && (!hardEnd || cur<=hardEnd)){
-      const d1=setDOM(cur, day1), d2=setDOM(cur, day2);
-      if(d1>=start && d1<=end && (!hardEnd || d1<=hardEnd)) yield toISO(d1);
-      if(d2>=start && d2<=end && (!hardEnd || d2<=hardEnd)) yield toISO(d2);
+    while(cur<=endD && (!hardEnd || cur<=hardEnd)){
+      const d1=setDOM(cur, Number(cfg.day1||1));
+      const d2=setDOM(cur, Number(cfg.day2||15));
+      if(d1>=startD && d1<=endD && (!hardEnd || d1<=hardEnd)) yield d1;
+      if(d2>=startD && d2<=endD && (!hardEnd || d2<=hardEnd)) yield d2;
       cur = addMonths(cur, interval);
     }
     return;
   }
 
-  let cur = cfg.anchorISO ? parseISO(cfg.anchorISO)
-          : cfg.startISO ? parseISO(cfg.startISO) : start;
+  let cur = cfg.anchorD || cfg.startD || startD;
   if((freq==="monthly"||freq==="quarterly"||freq==="yearly") && cfg.dayOfMonth){
     cur = setDOM(cur, Number(cfg.dayOfMonth));
   }
-  while(cur < start){
-    if(freq==="weekly") cur = addDays(cur, 7*interval);
-    else if(freq==="biweekly") cur = addDays(cur, 14*interval);
-    else if(freq==="monthly") cur = addMonths(cur, interval);
-    else if(freq==="quarterly") cur = addMonths(cur, 3*interval);
-    else if(freq==="yearly") cur = addMonths(cur, 12*interval);
+  while(cur<startD){
+    if(freq==="weekly") cur=addDays(cur,7*interval);
+    else if(freq==="biweekly") cur=addDays(cur,14*interval);
+    else if(freq==="monthly") cur=addMonths(cur,interval);
+    else if(freq==="quarterly") cur=addMonths(cur,3*interval);
+    else if(freq==="yearly") cur=addMonths(cur,12*interval);
     else break;
   }
-  while(cur<=end && (!hardEnd || cur<=hardEnd)){
-    yield toISO(cur);
-    if(freq==="weekly") cur = addDays(cur, 7*interval);
-    else if(freq==="biweekly") cur = addDays(cur, 14*interval);
-    else if(freq==="monthly") cur = addMonths(cur, interval);
-    else if(freq==="quarterly") cur = addMonths(cur, 3*interval);
-    else if(freq==="yearly") cur = addMonths(cur, 12*interval);
+  while(cur<=endD && (!hardEnd || cur<=hardEnd)){
+    yield cur;
+    if(freq==="weekly") cur=addDays(cur,7*interval);
+    else if(freq==="biweekly") cur=addDays(cur,14*interval);
+    else if(freq==="monthly") cur=addMonths(cur,interval);
+    else if(freq==="quarterly") cur=addMonths(cur,3*interval);
+    else if(freq==="yearly") cur=addMonths(cur,12*interval);
     else break;
   }
 }
 
-/* pulls */
-async function pullAll(col){ const snap = await getDocs(collection(db,col)); return snap.docs.map(d=>({ id:d.id, ...d.data() })); }
+/* firestore pulls */
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+async function pullAll(col){ const snap=await getDocs(collection(db,col)); return snap.docs.map(d=>({id:d.id,...d.data()})); }
+
+onAuthStateChanged(auth,(u)=>{
+  if(!u){ location.href=LOGIN; return; }
+  $("#auth").innerHTML=`<span class="badge">${u.email}</span> <a class="btn" href="#" id="signout">Sign out</a>`;
+  $("#signout").onclick=(e)=>{e.preventDefault();signOutUser();};
+  init();
+});
 
 async function loadLedger(){
   try{
     showErr("");
-    const startISO = $("#ledgerStart").value;
-    const endISO   = $("#ledgerEnd").value;
+    const startD = toDate($("#ledgerStart").value);
+    const endD   = toDate($("#ledgerEnd").value);
+    if(!startD || !endD){ showErr("Select valid start and end dates."); return; }
 
-    // collections (plural)
     const [incomes, expenses, bills, debts] = await Promise.all([
       pullAll("finances_income"),
       pullAll("finances_expenses"),
       pullAll("finances_bills"),
-      pullAll("finances_debts")
+      pullAll("finances_debts"),
     ]);
-    $("#dbg").textContent = `loaded I:${incomes.length} E:${expenses.length} B:${bills.length} D:${debts.length}`;
+    $("#dbg").textContent=`loaded I:${incomes.length} E:${expenses.length} B:${bills.length} D:${debts.length}`;
 
-    // income
+    // Income
     const inc = incomes.map(r=>{
-      const iso = toISO(r.date || r.receivedDate || r.postedDate);
-      const amt = Number(r.amount ?? r.net ?? r.gross ?? 0);
-      return { dateISO: iso, type:"Income", cat:(r.source||r.category||r.name||""), amt: isFinite(amt)? amt:0 };
-    }).filter(x=> inRangeISO(x.dateISO,startISO,endISO));
+      const d=toDate(r.date||r.receivedDate||r.postedDate);
+      const amt=Number(r.amount ?? r.net ?? r.gross ?? 0);
+      return { d, type:"Income", cat:(r.source||r.category||r.name||""), amt:isFinite(amt)? amt:0 };
+    }).filter(x=> inRangeDate(x.d,startD,endD));
 
-    // one-off expenses
-    const expOne = expenses.filter(r=>!(r.recurring||r.frequency)).map(r=>{
-      const iso = toISO(r.date || r.postedDate || r.paidDate);
-      const amt = Number(r.amount ?? r.total ?? 0);
-      return { dateISO: iso, type:"Expense", cat:(r.category||r.payee||r.name||""), amt: isFinite(amt)? -Math.abs(amt):0 };
-    }).filter(x=> inRangeISO(x.dateISO,startISO,endISO));
+    // Expenses: one-off
+    const expOne = expenses.filter(r=> !(r.recurring||r.frequency||r.isRecurring||r.repeat)).map(r=>{
+      const d=toDate(r.date||r.postedDate||r.paidDate);
+      const amt=Number(r.amount ?? r.total ?? 0);
+      return { d, type:"Expense", cat:(r.category||r.payee||r.name||""), amt: isFinite(amt)? -Math.abs(amt):0 };
+    }).filter(x=> inRangeDate(x.d,startD,endD));
 
-    // recurring expenses
-    const expRec = expenses.filter(r=> (r.recurring||r.frequency)).flatMap(r=>{
+    // Expenses: recurring
+    const expRec = expenses.filter(r=> (r.recurring||r.frequency||r.isRecurring||r.repeat)).flatMap(r=>{
       const amount = Number(r.amount ?? r.total ?? 0);
-      const cfg = {
-        frequency: (r.frequency||"").toLowerCase(),
+      const cfg={
+        frequency: String(r.frequency||r.repeat||"").toLowerCase(),
         interval: r.interval||1,
-        anchorISO: toISO(r.anchorDate||r.startDate||r.date),
-        startISO: toISO(r.startDate||r.date),
-        endISO: toISO(r.endDate),
+        anchorD: toDate(r.anchorDate||r.startDate||r.date),
+        startD:  toDate(r.startDate||r.date),
+        endD:    toDate(r.endDate),
         dayOfMonth: r.dayOfMonth,
         day1: r.day1, day2: r.day2
       };
       const rows=[];
-      for(const iso of genOccurrences(cfg,startISO,endISO)){
-        rows.push({ dateISO: iso, type:"Expense", cat:(r.category||r.payee||r.name||""), amt: -Math.abs(Number(amount)||0) });
+      for(const d of genOccurrences(cfg,startD,endD)){
+        rows.push({ d, type:"Expense", cat:(r.category||r.payee||r.name||""), amt:-Math.abs(Number(amount)||0) });
       }
       return rows;
     });
 
-    // bills (default monthly if marked recurring)
+    // Bills
     const billRows = bills.flatMap(r=>{
-      const amount = Number(r.amount ?? r.paymentAmount ?? 0);
-      const isRec = r.recurring || r.frequency;
+      const amount=Number(r.amount ?? r.paymentAmount ?? 0);
+      const isRec=(r.recurring||r.frequency||r.isRecurring||r.repeat);
       if(!isRec){
-        const iso = toISO(r.dueDate || r.date);
-        if(!inRangeISO(iso,startISO,endISO)) return [];
-        return [{ dateISO: iso, type:"Bill", cat:(r.name||r.category||""), amt: -Math.abs(amount) }];
+        const d=toDate(r.dueDate||r.date);
+        if(!inRangeDate(d,startD,endD)) return [];
+        return [{ d, type:"Bill", cat:(r.name||r.category||""), amt:-Math.abs(amount) }];
       }
-      const cfg = {
-        frequency: (r.frequency||"monthly").toLowerCase(),
+      const cfg={
+        frequency: String(r.frequency||r.repeat||"monthly").toLowerCase(),
         interval: r.interval||1,
-        anchorISO: toISO(r.anchorDate||r.startDate||r.dueDate||r.date),
-        startISO: toISO(r.startDate||r.dueDate||r.date),
-        endISO: toISO(r.endDate),
+        anchorD: toDate(r.anchorDate||r.startDate||r.dueDate||r.date),
+        startD:  toDate(r.startDate||r.dueDate||r.date),
+        endD:    toDate(r.endDate),
         dayOfMonth: r.dayOfMonth,
         day1: r.day1, day2: r.day2
       };
       const rows=[];
-      for(const iso of genOccurrences(cfg,startISO,endISO)){
-        rows.push({ dateISO: iso, type:"Bill", cat:(r.name||r.category||""), amt: -Math.abs(Number(amount)||0) });
+      for(const d of genOccurrences(cfg,startD,endD)){
+        rows.push({ d, type:"Bill", cat:(r.name||r.category||""), amt:-Math.abs(Number(amount)||0) });
       }
       return rows;
     });
 
-    // debts (scheduled payments)
+    // Debts
     const debtRows = debts.flatMap(r=>{
-      const amount = Number(r.paymentAmount ?? r.amount ?? 0);
-      const isRec = r.recurring || r.frequency || r.paymentDay || r.dayOfMonth;
+      const amount=Number(r.paymentAmount ?? r.amount ?? r.monthlyPayment ?? 0);
+      const isRec=(r.recurring||r.frequency||r.isRecurring||r.repeat||r.paymentDay||r.dayOfMonth);
       if(!isRec){
-        const iso = toISO(r.date || r.nextDue);
-        if(!inRangeISO(iso,startISO,endISO)) return [];
-        return [{ dateISO: iso, type:"Debt", cat:(r.name||r.lender||"Debt"), amt: -Math.abs(amount) }];
+        const d=toDate(r.date||r.nextDue);
+        if(!inRangeDate(d,startD,endD)) return [];
+        return [{ d, type:"Debt", cat:(r.name||r.lender||"Debt"), amt:-Math.abs(amount) }];
       }
-      const cfg = {
-        frequency: (r.frequency||"monthly").toLowerCase(),
+      const cfg={
+        frequency: String(r.frequency||r.repeat||"monthly").toLowerCase(),
         interval: r.interval||1,
-        anchorISO: toISO(r.anchorDate||r.startDate||r.nextDue||r.date),
-        startISO: toISO(r.startDate||r.date||r.nextDue),
-        endISO: toISO(r.endDate),
+        anchorD: toDate(r.anchorDate||r.startDate||r.nextDue||r.date),
+        startD:  toDate(r.startDate||r.date||r.nextDue),
+        endD:    toDate(r.endDate),
         dayOfMonth: r.dayOfMonth || r.paymentDay,
         day1: r.day1, day2: r.day2
       };
       const rows=[];
-      for(const iso of genOccurrences(cfg,startISO,endISO)){
-        rows.push({ dateISO: iso, type:"Debt", cat:(r.name||r.lender||"Debt"), amt: -Math.abs(Number(amount)||0) });
+      for(const d of genOccurrences(cfg,startD,endD)){
+        rows.push({ d, type:"Debt", cat:(r.name||r.lender||"Debt"), amt:-Math.abs(Number(amount)||0) });
       }
       return rows;
     });
 
-    const rows = [...inc, ...expOne, ...expRec, ...billRows, ...debtRows]
-      .filter(x=> x.dateISO)
-      .sort((a,b)=> a.dateISO.localeCompare(b.dateISO));
+    const rows=[...inc, ...expOne, ...expRec, ...billRows, ...debtRows]
+      .filter(x=> x.d instanceof Date && !isNaN(+x.d))
+      .sort((a,b)=> a.d - b.d);
 
-    $("#count").textContent = `${rows.length} item(s)`;
+    $("#count").textContent=`${rows.length} item(s)`;
 
     const tbody=$("#ledgerRows"); tbody.innerHTML="";
     rows.forEach(r=>{
       const tr=document.createElement("tr");
-      tr.innerHTML = `<td>${r.dateISO}</td><td>${r.type}</td><td>${r.cat}</td><td class="right">${money(r.amt)}</td>`;
+      tr.innerHTML=`<td>${fmtISO(r.d)}</td><td>${r.type}</td><td>${r.cat}</td><td class="right">${money(r.amt)}</td>`;
       tbody.appendChild(tr);
     });
 
     const totIncome = inc.reduce((s,x)=>s+x.amt,0);
-    const totOut = rows.filter(r=>r.amt<0).reduce((s,x)=>s+(-x.amt),0);
-    const net = totIncome - totOut;
-
+    const totOut    = rows.filter(r=>r.amt<0).reduce((s,x)=>s+(-x.amt),0);
+    const net       = totIncome - totOut;
     $("#totIncome").textContent  = money(totIncome);
     $("#totExpense").textContent = money(totOut);
     $("#totNet").textContent     = money(net);
@@ -266,21 +276,30 @@ function exportCsv(){
     const tds=[...tr.querySelectorAll("td")].map(td=> td.textContent.trim());
     rows.push(tds);
   });
-  const csv = rows.map(r=> r.map(c=>{
+  const csv=rows.map(r=> r.map(c=>{
     const s=String(c??""); return /[",\n]/.test(s)? `"${s.replace(/"/g,'""')}"` : s;
   }).join(",")).join("\n");
-  const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
   const a=document.createElement("a"); a.href=url; a.download="ledger.csv"; document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
 
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function monthStartISO(){ const d=new Date(); d.setDate(1); return d.toISOString().slice(0,10); }
+
 function init(){
-  $("#ledgerStart").value = monthStartISO();
-  $("#ledgerEnd").value   = todayISO();
-  $("#refresh").onclick = loadLedger;
-  $("#exportCsv").onclick = exportCsv;
+  $("#ledgerStart").value=monthStartISO();
+  $("#ledgerEnd").value=todayISO();
+  $("#refresh").onclick=loadLedger;
+  $("#exportCsv").onclick=exportCsv;
   loadLedger();
 }
+
+onAuthStateChanged(auth,(u)=>{
+  if(!u){ location.href=LOGIN; return; }
+});
+
+init();
 </script>
 </body></html>
