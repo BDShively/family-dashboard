@@ -22,8 +22,16 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
 .tile{background:#0f1330;border:1px solid var(--line);border-radius:12px;padding:10px}
 .tile h4{margin:0 0 6px 0;font-size:12px;color:var(--muted)}
 .val{font-variant-numeric:tabular-nums;font-size:18px}
-.small{font-size:12px;color:var(--muted)}
-pre#dbg{white-space:pre-wrap;background:#0f1330;border:1px dashed var(--line);padding:8px;border-radius:10px}
+.chartWrap{width:100%;max-width:100%;aspect-ratio:16/6;background:#0f1330;border:1px solid var(--line);border-radius:12px;position:relative;overflow:hidden}
+.chartWrap .legend{position:absolute;top:8px;right:10px;display:flex;gap:12px;font-size:12px;color:var(--muted)}
+.legend .key{display:inline-flex;align-items:center;gap:6px}
+.key .sw{width:14px;height:3px;background:#6aa0ff;border-radius:2px}
+.key .sw.exp{background:#f28b82}
+.gridline{stroke:#25305a;stroke-width:1}
+.pathInc{fill:none;stroke:#6aa0ff;stroke-width:2}
+.pathExp{fill:none;stroke:#f28b82;stroke-width:2}
+.axis{stroke:#2b325a;stroke-width:1}
+.tick{fill:var(--muted);font-size:10px}
 </style>
 </head>
 <body>
@@ -37,6 +45,7 @@ pre#dbg{white-space:pre-wrap;background:#0f1330;border:1px dashed var(--line);pa
 
 <div id="err" class="alert"></div>
 
+<!-- Controls -->
 <div class="card">
   <div class="row">
     <label>Start <input id="ledgerStart" type="date"></label>
@@ -45,13 +54,13 @@ pre#dbg{white-space:pre-wrap;background:#0f1330;border:1px dashed var(--line);pa
     <button id="exportCsv" class="btn">Export CSV</button>
     <span class="badge" id="count">0 items</span>
   </div>
-  <div class="small">
+  <div class="small" style="color:var(--muted)">
     Collections: <code>finances_income</code>, <code>finances_expenses</code>, <code>finances_bills</code>, <code>finances_debts</code>.
-    Supports monthly day fields (<code>dayOfMonth</code>, <code>paymentDay</code>, or <code>day1/day2</code>) and anchors
-    (<code>startDate</code>, <code>dueDate</code>, <code>nextDue</code>, <code>anchorDate</code>). Dates: Timestamp, YYYY-MM-DD, MM/DD/YYYY.
+    Recurring supported: weekly, biweekly, monthly, quarterly, yearly, semi-monthly (day1/day2). Month-day fields accepted: <code>dayOfMonth</code>, <code>paymentDay</code>, <code>dueDay</code>.
   </div>
 </div>
 
+<!-- Totals -->
 <div class="card">
   <div class="totals">
     <div class="tile"><h4>Total Income</h4><div class="val" id="totIncome">$0.00</div></div>
@@ -60,16 +69,25 @@ pre#dbg{white-space:pre-wrap;background:#0f1330;border:1px dashed var(--line);pa
   </div>
 </div>
 
+<!-- Line Chart -->
 <div class="card">
-  <table class="table">
-    <thead><tr><th>Date</th><th>Type</th><th>Category/Source</th><th class="right">Amount</th></tr></thead>
-    <tbody id="ledgerRows"></tbody>
-  </table>
+  <div class="chartWrap">
+    <svg id="chart" viewBox="0 0 1000 380" preserveAspectRatio="none" aria-label="Income vs Expense chart"></svg>
+    <div class="legend">
+      <span class="key"><span class="sw"></span>Income</span>
+      <span class="key"><span class="sw exp"></span>Expense</span>
+    </div>
+  </div>
 </div>
 
+<!-- Ledger table -->
 <div class="card">
-  <h4 style="margin:0 0 6px 0;color:var(--muted)">Debug</h4>
-  <pre id="dbg">—</pre>
+  <table class="table">
+    <thead>
+      <tr><th>Date</th><th>Type</th><th>Category/Source</th><th class="right">Amount</th></tr>
+    </thead>
+    <tbody id="ledgerRows"></tbody>
+  </table>
 </div>
 
 <script type="module">
@@ -275,6 +293,7 @@ async function loadLedger(){
 
   $("#count").textContent=`${rows.length} item(s)`;
 
+  // Table
   const tbody=$("#ledgerRows"); tbody.innerHTML="";
   rows.forEach(r=>{
     const tr=document.createElement("tr");
@@ -282,6 +301,7 @@ async function loadLedger(){
     tbody.appendChild(tr);
   });
 
+  // Totals
   const totIncome = inc.reduce((s,x)=>s+x.amt,0);
   const totOut    = rows.filter(r=>r.amt<0).reduce((s,x)=>s+(-x.amt),0);
   const net       = totIncome - totOut;
@@ -289,17 +309,76 @@ async function loadLedger(){
   $("#totExpense").textContent = money(totOut);
   $("#totNet").textContent     = money(net);
 
-  const dbg = {
-    counts:{ incomes:incomes.length, expenses:expenses.length, bills:bills.length, debts:debts.length },
-    debtParseSample: debts.slice(0,3).map(x=>({
-      id:x.id, lender:(x.lender||x.name||"Debt"),
-      raw:(x.paymentAmount??x.monthlyPayment??x.minPayment??x.min??x.amount??x.dueAmount??x.autoPayAmount??null),
-      parsed:firstAmount(x,["paymentAmount","monthlyPayment","minPayment","min","amount","dueAmount","autoPayAmount","installment"]),
-      day:x.dayOfMonth||x.paymentDay||x.dueDay||null, freq:(x.frequency||x.repeat||"monthly")
-    })),
-    firstRows: rows.slice(0,5).map(r=>({date:fmtISO(r.d),type:r.type,cat:r.cat,amt:r.amt}))
-  };
-  $("#dbg").textContent = JSON.stringify(dbg,null,2);
+  // Build daily series for chart
+  const days=[]; let cur=new Date(startD);
+  while(cur<=endD){ days.push(new Date(cur)); cur=addDays(cur,1); }
+  const byDayInc=new Map(), byDayExp=new Map();
+  rows.forEach(r=>{
+    const k=fmtISO(r.d);
+    if(r.amt>=0) byDayInc.set(k,(byDayInc.get(k)||0)+r.amt);
+    else byDayExp.set(k,(byDayExp.get(k)||0)+(-r.amt));
+  });
+  const seriesInc=days.map(d=>({x:d, y: byDayInc.get(fmtISO(d))||0}));
+  const seriesExp=days.map(d=>({x:d, y: byDayExp.get(fmtISO(d))||0}));
+
+  renderChart(seriesInc, seriesExp);
+}
+
+/* SVG line chart (no external libs) */
+function renderChart(inc, exp){
+  const svg=$("#chart");
+  const W=1000, H=380, padL=50, padR=16, padT=16, padB=28;
+  svg.innerHTML="";
+
+  const allY=[...inc,...exp].map(p=>p.y);
+  const maxY=Math.max(10, ...allY);
+  const xs=inc.map(p=>+p.x); // same X domain as exp
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+
+  const xScale=t=> padL + ( (t-minX)/(maxX-minX||1) )*(W-padL-padR);
+  const yScale=v=> H-padB - (v/maxY)*(H-padT-padB);
+
+  // gridlines
+  const g=4;
+  for(let i=0;i<=g;i++){
+    const y=yScale((maxY/g)*i);
+    const ln=document.createElementNS("http://www.w3.org/2000/svg","line");
+    ln.setAttribute("x1",padL); ln.setAttribute("x2",W-padR);
+    ln.setAttribute("y1",y); ln.setAttribute("y2",y);
+    ln.setAttribute("class","gridline");
+    svg.appendChild(ln);
+
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",8); t.setAttribute("y",y+3);
+    t.setAttribute("class","tick"); t.textContent="$"+Math.round((maxY/g)*i);
+    svg.appendChild(t);
+  }
+
+  // axes
+  const ax=document.createElementNS("http://www.w3.org/2000/svg","line");
+  ax.setAttribute("x1",padL); ax.setAttribute("x2",W-padR);
+  ax.setAttribute("y1",H-padB); ax.setAttribute("y2",H-padB);
+  ax.setAttribute("class","axis"); svg.appendChild(ax);
+
+  // x ticks (about 6)
+  const steps=Math.max(1, Math.round((inc.length-1)/5));
+  for(let i=0;i<inc.length;i+=steps){
+    const x=xScale(+inc[i].x); const y=H-padB;
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",x); t.setAttribute("y",y+16);
+    t.setAttribute("text-anchor","middle"); t.setAttribute("class","tick");
+    const d=inc[i].x; t.textContent = `${d.getMonth()+1}/${d.getDate()}`;
+    svg.appendChild(t);
+  }
+
+  function pathString(arr){
+    return arr.map((p,i)=>`${i?"L":"M"}${xScale(+p.x)},${yScale(p.y)}`).join(" ");
+    }
+  const p1=document.createElementNS("http://www.w3.org/2000/svg","path");
+  p1.setAttribute("d", pathString(inc)); p1.setAttribute("class","pathInc"); svg.appendChild(p1);
+
+  const p2=document.createElementNS("http://www.w3.org/2000/svg","path");
+  p2.setAttribute("d", pathString(exp)); p2.setAttribute("class","pathExp"); svg.appendChild(p2);
 }
 
 /* auth gate */
