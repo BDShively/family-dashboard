@@ -48,7 +48,7 @@ pre#dbg{white-space:pre-wrap;background:#0f1330;border:1px dashed var(--line);pa
   <div class="small">
     Collections: <code>finances_income</code>, <code>finances_expenses</code>, <code>finances_bills</code>, <code>finances_debts</code>.
     Supports monthly day fields (<code>dayOfMonth</code>, <code>paymentDay</code>, or <code>day1/day2</code>) and anchors
-    (<code>startDate</code>, <code>dueDate</code>, <code>nextDue</code>, <code>anchorDate</code>). Dates accepted: Timestamp, YYYY-MM-DD, MM/DD/YYYY.
+    (<code>startDate</code>, <code>dueDate</code>, <code>nextDue</code>, <code>anchorDate</code>). Dates: Timestamp, YYYY-MM-DD, MM/DD/YYYY.
   </div>
 </div>
 
@@ -83,6 +83,26 @@ const showErr=(t)=>{const e=$("#err"); e.textContent=t||""; e.style.display=t?"b
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 function monthStartISO(){ const d=new Date(); d.setDate(1); return d.toISOString().slice(0,10); }
 function money(n){ const x=Number(n)||0; return x<0? "-$"+Math.abs(x).toFixed(2) : "$"+x.toFixed(2); }
+
+/* tolerant numeric parsing */
+function num(v){
+  if(v==null) return 0;
+  if(typeof v==="number") return v;
+  if(typeof v==="string"){
+    const n=parseFloat(v.replace(/[\$,]/g,"").trim());
+    return isFinite(n)? n:0;
+  }
+  return 0;
+}
+function firstAmount(obj, keys){
+  for(const k of keys){
+    if(k in obj){
+      const n=num(obj[k]);
+      if(n!==0) return n;
+    }
+  }
+  return num(obj[keys[0]]);
+}
 
 /* robust dates */
 function toDate(v){
@@ -167,20 +187,20 @@ async function loadLedger(){
   // income
   const inc = incomes.map(r=>{
     const d=toDate(r.date||r.receivedDate||r.postedDate);
-    const amt=Number(r.amount ?? r.net ?? r.gross ?? 0);
+    const amt=firstAmount(r,["amount","net","gross"]);
     return { d, type:"Income", cat:(r.source||r.category||r.name||""), amt:isFinite(amt)? amt:0 };
   }).filter(x=> inRange(x.d,startD,endD));
 
   // expenses one-off
   const expOne = expenses.filter(r=> !(r.recurring||r.frequency||r.isRecurring||r.repeat)).map(r=>{
     const d=toDate(r.date||r.postedDate||r.paidDate);
-    const amt=Number(r.amount ?? r.total ?? 0);
+    const amt=firstAmount(r,["amount","total"]);
     return { d, type:"Expense", cat:(r.category||r.payee||r.name||""), amt: isFinite(amt)? -Math.abs(amt):0 };
   }).filter(x=> inRange(x.d,startD,endD));
 
   // expenses recurring
   const expRec = expenses.filter(r=> (r.recurring||r.frequency||r.isRecurring||r.repeat)).flatMap(r=>{
-    const amount = Number(r.amount ?? r.total ?? 0);
+    const amount = firstAmount(r,["amount","total"]);
     const cfg={
       frequency: String(r.frequency||r.repeat||"monthly").toLowerCase(),
       interval: r.interval||1,
@@ -199,7 +219,7 @@ async function loadLedger(){
 
   // bills
   const billRows = bills.flatMap(r=>{
-    const amount=Number(r.amount ?? r.paymentAmount ?? 0);
+    const amount=firstAmount(r,["amount","paymentAmount"]);
     const isRec=(r.recurring||r.frequency||r.isRecurring||r.repeat || r.dayOfMonth || r.day1 || r.day2 || r.paymentDay || r.dueDay);
     if(!isRec){
       const d=toDate(r.dueDate||r.date);
@@ -222,12 +242,14 @@ async function loadLedger(){
     return rows;
   });
 
-  // debts
+  // debts (includes "min")
   const debtRows = debts.flatMap(r=>{
-    const amount=Number(r.paymentAmount ?? r.amount ?? r.monthlyPayment ?? 0);
+    const amount = firstAmount(r,[
+      "paymentAmount","monthlyPayment","minPayment","min","amount","dueAmount","autoPayAmount","installment"
+    ]);
     const isRec=(r.recurring||r.frequency||r.isRecurring||r.repeat||r.paymentDay||r.dayOfMonth||r.dueDay);
     if(!isRec){
-      const d=toDate(r.date||r.nextDue);
+      const d=toDate(r.date||r.nextDue||r.dueDate);
       if(!inRange(d,startD,endD)) return [];
       return [{ d, type:"Debt", cat:(r.name||r.lender||"Debt"), amt:-Math.abs(amount) }];
     }
@@ -269,6 +291,12 @@ async function loadLedger(){
 
   const dbg = {
     counts:{ incomes:incomes.length, expenses:expenses.length, bills:bills.length, debts:debts.length },
+    debtParseSample: debts.slice(0,3).map(x=>({
+      id:x.id, lender:(x.lender||x.name||"Debt"),
+      raw:(x.paymentAmount??x.monthlyPayment??x.minPayment??x.min??x.amount??x.dueAmount??x.autoPayAmount??null),
+      parsed:firstAmount(x,["paymentAmount","monthlyPayment","minPayment","min","amount","dueAmount","autoPayAmount","installment"]),
+      day:x.dayOfMonth||x.paymentDay||x.dueDay||null, freq:(x.frequency||x.repeat||"monthly")
+    })),
     firstRows: rows.slice(0,5).map(r=>({date:fmtISO(r.d),type:r.type,cat:r.cat,amt:r.amt}))
   };
   $("#dbg").textContent = JSON.stringify(dbg,null,2);
