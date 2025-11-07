@@ -1,4 +1,3 @@
-<!-- /family-dashboard/finances/ledger.html -->
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Finances · Ledger</title>
@@ -23,15 +22,11 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
 .tile h4{margin:0 0 6px 0;font-size:12px;color:var(--muted)}
 .val{font-variant-numeric:tabular-nums;font-size:18px}
 .chartWrap{width:100%;max-width:100%;aspect-ratio:16/6;background:#0f1330;border:1px solid var(--line);border-radius:12px;position:relative;overflow:hidden}
-.chartWrap .legend{position:absolute;top:8px;right:10px;display:flex;gap:12px;font-size:12px;color:var(--muted)}
-.legend .key{display:inline-flex;align-items:center;gap:6px}
-.key .sw{width:14px;height:3px;background:#6aa0ff;border-radius:2px}
-.key .sw.exp{background:#f28b82}
 .gridline{stroke:#25305a;stroke-width:1}
-.pathInc{fill:none;stroke:#6aa0ff;stroke-width:2}
-.pathExp{fill:none;stroke:#f28b82;stroke-width:2}
 .axis{stroke:#2b325a;stroke-width:1}
+.pathNet{fill:none;stroke:#6aa0ff;stroke-width:2}
 .tick{fill:var(--muted);font-size:10px}
+.legend{position:absolute;top:8px;right:10px;font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -56,7 +51,7 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
   </div>
   <div class="small" style="color:var(--muted)">
     Collections: <code>finances_income</code>, <code>finances_expenses</code>, <code>finances_bills</code>, <code>finances_debts</code>.
-    Recurring supported: weekly, biweekly, monthly, quarterly, yearly, semi-monthly (day1/day2). Month-day fields accepted: <code>dayOfMonth</code>, <code>paymentDay</code>, <code>dueDay</code>.
+    Recurring supported: weekly, biweekly, monthly, quarterly, yearly, semi-monthly (day1/day2).
   </div>
 </div>
 
@@ -69,23 +64,18 @@ input,select{background:#0f1330;color:#e6eefc;border:1px solid var(--line);borde
   </div>
 </div>
 
-<!-- Line Chart -->
+<!-- Net line chart -->
 <div class="card">
   <div class="chartWrap">
-    <svg id="chart" viewBox="0 0 1000 380" preserveAspectRatio="none" aria-label="Income vs Expense chart"></svg>
-    <div class="legend">
-      <span class="key"><span class="sw"></span>Income</span>
-      <span class="key"><span class="sw exp"></span>Expense</span>
-    </div>
+    <svg id="chart" viewBox="0 0 1000 380" preserveAspectRatio="none" aria-label="Daily net chart"></svg>
+    <div class="legend">Net (Income − Outflow)</div>
   </div>
 </div>
 
 <!-- Ledger table -->
 <div class="card">
   <table class="table">
-    <thead>
-      <tr><th>Date</th><th>Type</th><th>Category/Source</th><th class="right">Amount</th></tr>
-    </thead>
+    <thead><tr><th>Date</th><th>Type</th><th>Category/Source</th><th class="right">Amount</th></tr></thead>
     <tbody id="ledgerRows"></tbody>
   </table>
 </div>
@@ -106,19 +96,11 @@ function money(n){ const x=Number(n)||0; return x<0? "-$"+Math.abs(x).toFixed(2)
 function num(v){
   if(v==null) return 0;
   if(typeof v==="number") return v;
-  if(typeof v==="string"){
-    const n=parseFloat(v.replace(/[\$,]/g,"").trim());
-    return isFinite(n)? n:0;
-  }
+  if(typeof v==="string"){ const n=parseFloat(v.replace(/[\$,]/g,"").trim()); return isFinite(n)? n:0; }
   return 0;
 }
 function firstAmount(obj, keys){
-  for(const k of keys){
-    if(k in obj){
-      const n=num(obj[k]);
-      if(n!==0) return n;
-    }
-  }
+  for(const k of keys){ if(k in obj){ const n=num(obj[k]); if(n!==0) return n; } }
   return num(obj[keys[0]]);
 }
 
@@ -183,11 +165,8 @@ function* genOccurrences(cfg, startD, endD){
   }
 }
 
-/* firestore */
-async function pullAll(col){
-  const snap=await getDocs(collection(db,col));
-  return snap.docs.map(d=>({id:d.id,...d.data()}));
-}
+/* firestore pulls */
+async function pullAll(col){ const snap=await getDocs(collection(db,col)); return snap.docs.map(d=>({id:d.id,...d.data()})); }
 
 async function loadLedger(){
   const startD = toDate($("#ledgerStart").value);
@@ -202,21 +181,21 @@ async function loadLedger(){
     pullAll("finances_debts"),
   ]);
 
-  // income
+  // Income
   const inc = incomes.map(r=>{
     const d=toDate(r.date||r.receivedDate||r.postedDate);
     const amt=firstAmount(r,["amount","net","gross"]);
     return { d, type:"Income", cat:(r.source||r.category||r.name||""), amt:isFinite(amt)? amt:0 };
   }).filter(x=> inRange(x.d,startD,endD));
 
-  // expenses one-off
+  // Expenses one-off
   const expOne = expenses.filter(r=> !(r.recurring||r.frequency||r.isRecurring||r.repeat)).map(r=>{
     const d=toDate(r.date||r.postedDate||r.paidDate);
     const amt=firstAmount(r,["amount","total"]);
     return { d, type:"Expense", cat:(r.category||r.payee||r.name||""), amt: isFinite(amt)? -Math.abs(amt):0 };
   }).filter(x=> inRange(x.d,startD,endD));
 
-  // expenses recurring
+  // Expenses recurring
   const expRec = expenses.filter(r=> (r.recurring||r.frequency||r.isRecurring||r.repeat)).flatMap(r=>{
     const amount = firstAmount(r,["amount","total"]);
     const cfg={
@@ -235,7 +214,7 @@ async function loadLedger(){
     return rows;
   });
 
-  // bills
+  // Bills
   const billRows = bills.flatMap(r=>{
     const amount=firstAmount(r,["amount","paymentAmount"]);
     const isRec=(r.recurring||r.frequency||r.isRecurring||r.repeat || r.dayOfMonth || r.day1 || r.day2 || r.paymentDay || r.dueDay);
@@ -260,7 +239,7 @@ async function loadLedger(){
     return rows;
   });
 
-  // debts (includes "min")
+  // Debts (supports "min")
   const debtRows = debts.flatMap(r=>{
     const amount = firstAmount(r,[
       "paymentAmount","monthlyPayment","minPayment","min","amount","dueAmount","autoPayAmount","installment"
@@ -309,39 +288,47 @@ async function loadLedger(){
   $("#totExpense").textContent = money(totOut);
   $("#totNet").textContent     = money(net);
 
-  // Build daily series for chart
+  // Daily net series
   const days=[]; let cur=new Date(startD);
   while(cur<=endD){ days.push(new Date(cur)); cur=addDays(cur,1); }
-  const byDayInc=new Map(), byDayExp=new Map();
+  const byDayNet=new Map();
   rows.forEach(r=>{
     const k=fmtISO(r.d);
-    if(r.amt>=0) byDayInc.set(k,(byDayInc.get(k)||0)+r.amt);
-    else byDayExp.set(k,(byDayExp.get(k)||0)+(-r.amt));
+    byDayNet.set(k,(byDayNet.get(k)||0)+r.amt);
   });
-  const seriesInc=days.map(d=>({x:d, y: byDayInc.get(fmtISO(d))||0}));
-  const seriesExp=days.map(d=>({x:d, y: byDayExp.get(fmtISO(d))||0}));
+  const seriesNet=days.map(d=>({x:d, y: byDayNet.get(fmtISO(d))||0}));
 
-  renderChart(seriesInc, seriesExp);
+  renderNetChart(seriesNet);
 }
 
-/* SVG line chart (no external libs) */
-function renderChart(inc, exp){
+/* SVG single-line chart for NET */
+function renderNetChart(net){
   const svg=$("#chart");
   const W=1000, H=380, padL=50, padR=16, padT=16, padB=28;
   svg.innerHTML="";
 
-  const allY=[...inc,...exp].map(p=>p.y);
-  const maxY=Math.max(10, ...allY);
-  const xs=inc.map(p=>+p.x); // same X domain as exp
+  const ys=net.map(p=>p.y);
+  const maxAbs=Math.max(10, ...ys.map(v=>Math.abs(v)));
+  const yMax=maxAbs, yMin=-maxAbs;
+
+  const xs=net.map(p=>+p.x);
   const minX=Math.min(...xs), maxX=Math.max(...xs);
 
   const xScale=t=> padL + ( (t-minX)/(maxX-minX||1) )*(W-padL-padR);
-  const yScale=v=> H-padB - (v/maxY)*(H-padT-padB);
+  const yScale=v=> H-padB - ((v - yMin)/(yMax - yMin || 1))*(H-padT-padB);
 
-  // gridlines
+  // zero line
+  const zeroY=yScale(0);
+  const zero=document.createElementNS("http://www.w3.org/2000/svg","line");
+  zero.setAttribute("x1",padL); zero.setAttribute("x2",W-padR);
+  zero.setAttribute("y1",zeroY); zero.setAttribute("y2",zeroY);
+  zero.setAttribute("class","axis"); svg.appendChild(zero);
+
+  // gridlines (4 each above/below)
   const g=4;
   for(let i=0;i<=g;i++){
-    const y=yScale((maxY/g)*i);
+    const v = yMin + (i/g)*(yMax-yMin);
+    const y = yScale(v);
     const ln=document.createElementNS("http://www.w3.org/2000/svg","line");
     ln.setAttribute("x1",padL); ln.setAttribute("x2",W-padR);
     ln.setAttribute("y1",y); ln.setAttribute("y2",y);
@@ -350,35 +337,33 @@ function renderChart(inc, exp){
 
     const t=document.createElementNS("http://www.w3.org/2000/svg","text");
     t.setAttribute("x",8); t.setAttribute("y",y+3);
-    t.setAttribute("class","tick"); t.textContent="$"+Math.round((maxY/g)*i);
+    t.setAttribute("class","tick"); t.textContent="$"+Math.round(v);
     svg.appendChild(t);
   }
 
-  // axes
+  // x axis
   const ax=document.createElementNS("http://www.w3.org/2000/svg","line");
   ax.setAttribute("x1",padL); ax.setAttribute("x2",W-padR);
   ax.setAttribute("y1",H-padB); ax.setAttribute("y2",H-padB);
   ax.setAttribute("class","axis"); svg.appendChild(ax);
 
-  // x ticks (about 6)
-  const steps=Math.max(1, Math.round((inc.length-1)/5));
-  for(let i=0;i<inc.length;i+=steps){
-    const x=xScale(+inc[i].x); const y=H-padB;
+  // x ticks ~6
+  const steps=Math.max(1, Math.round((net.length-1)/5));
+  for(let i=0;i<net.length;i+=steps){
+    const x=xScale(+net[i].x); const y=H-padB;
     const t=document.createElementNS("http://www.w3.org/2000/svg","text");
     t.setAttribute("x",x); t.setAttribute("y",y+16);
     t.setAttribute("text-anchor","middle"); t.setAttribute("class","tick");
-    const d=inc[i].x; t.textContent = `${d.getMonth()+1}/${d.getDate()}`;
+    const d=net[i].x; t.textContent=`${d.getMonth()+1}/${d.getDate()}`;
     svg.appendChild(t);
   }
 
-  function pathString(arr){
-    return arr.map((p,i)=>`${i?"L":"M"}${xScale(+p.x)},${yScale(p.y)}`).join(" ");
-    }
-  const p1=document.createElementNS("http://www.w3.org/2000/svg","path");
-  p1.setAttribute("d", pathString(inc)); p1.setAttribute("class","pathInc"); svg.appendChild(p1);
-
-  const p2=document.createElementNS("http://www.w3.org/2000/svg","path");
-  p2.setAttribute("d", pathString(exp)); p2.setAttribute("class","pathExp"); svg.appendChild(p2);
+  // path
+  function pathString(arr){ return arr.map((p,i)=>`${i?"L":"M"}${xScale(+p.x)},${yScale(p.y)}`).join(" "); }
+  const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+  p.setAttribute("d", pathString(net));
+  p.setAttribute("class","pathNet");
+  svg.appendChild(p);
 }
 
 /* auth gate */
