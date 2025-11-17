@@ -1,224 +1,460 @@
-<!-- /family-dashboard/eads/tracker/links.html -->
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EADS · Links</title>
-<link rel="stylesheet" href="/family-dashboard/css/base.css">
-<style>
-:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--hi:#2b6cb0}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Inter;padding:18px}
-a{color:inherit;text-decoration:none}
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.btn{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#fff;cursor:pointer}
-.btn[disabled]{opacity:.6;cursor:not-allowed}
-.card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
-label{font-size:12px;color:var(--muted)}
-input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1330;color:#e6eefc}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-@media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr}}
-.badge{padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#0e1430;font-size:12px}
-.alert{padding:10px;border:1px solid #c53030;background:#2a0f12;color:#ffd6d6;border-radius:10px;margin-bottom:12px;display:none}
-.section{margin-top:8px}
-.hdr{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.group{margin:10px 0 16px 0}
-.group h3{margin:0 0 8px 0;font-size:14px;color:var(--muted)}
-.gridLinks{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
-.tile{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#0f1330}
-.tile .go{flex:1;text-align:left}
-.tile .go .title{font-weight:600}
-.tile .go .sub{font-size:12px;color:var(--muted)}
-.tile .actions{display:flex;gap:6px}
-input[type="search"]{background:#0f1330}
-</style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Force Quick Links</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .dark-mode {
+            background-color: #212529;
+            color: #f8f9fa;
+        }
+        .dark-mode .card, .dark-mode .accordion-button {
+            background-color: #343a40;
+            color: #f8f9fa;
+            border-color: #495057;
+        }
+        .dark-mode .btn-link { color: #f8f9fa; }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+        .btn-custom {
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin: 5px;
+            color: #2c3e50;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: inline-block;
+        }
+        .btn-custom:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            background-color: #e9ecef;
+        }
+        .search-bar { max-width: 500px; margin: 20px auto; }
+        .accordion-button { font-weight: 600; color: #2c3e50; }
+        .add-form {
+            background: #e7f3ff; padding: 20px; border-radius: 10px;
+            margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .add-form input, .add-form select, .add-form button {
+            margin: 8px 0; padding: 10px; font-size: 16px; border-radius: 6px;
+        }
+        .add-form button {
+            background: #0066cc; color: white; border: none; cursor: pointer;
+        }
+        .add-form button:hover { background: #0055aa; }
+        .save-status { font-size: 0.9em; color: #28a745; font-weight: bold; }
+        .raw-data { display: none; }
+    </style>
 </head>
 <body>
-<header>
-  <div class="hdr">
-    <a class="btn" href="/family-dashboard/eads/tracker/index.html">&larr; EADS Tracker</a>
-    <span class="badge">Links</span>
-  </div>
-  <div id="auth"></div>
-</header>
+    <div class="container my-4">
+        <h1 class="text-center mb-4">Air Force Quick Links</h1>
 
-<div id="err" class="alert"></div>
+        <!-- Controls -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <button id="darkModeToggle" class="btn btn-outline-secondary">Dark Mode</button>
+            <button id="addBookmarkBtn" class="btn btn-success">Add New Link</button>
+        </div>
 
-<!-- Add / Edit -->
-<div class="card">
-  <div class="grid3">
-    <div><label>Title</label><input id="f_title" placeholder="e.g., ARCNet, vPC, eMPF"></div>
-    <div><label>Category</label><input id="f_cat" placeholder="e.g., Admin, Training, Cyber"></div>
-    <div><label>URL</label><input id="f_url" placeholder="https://..."></div>
-  </div>
-  <div class="hdr" style="margin-top:10px">
-    <button class="btn" id="save">Save</button>
-    <button class="btn" id="update" disabled>Update</button>
-    <button class="btn" id="remove" disabled>Delete</button>
-    <span id="sel" class="badge">none</span>
-    <span class="badge" id="count" style="margin-left:auto">0</span>
-  </div>
-</div>
+        <!-- Search Bar -->
+        <div class="search-bar">
+            <input type="text" id="searchInput" class="form-control" placeholder="Search links..." aria-label="Search links">
+        </div>
 
-<!-- Filters -->
-<div class="card">
-  <div class="hdr">
-    <input id="q" type="search" placeholder="Search title, category, url">
-    <select id="sort">
-      <option value="cat-name">Sort: Category · Name</option>
-      <option value="name">Sort: Name</option>
-      <option value="created">Sort: Newest</option>
-    </select>
-    <button class="btn" id="clear">Clear form</button>
-  </div>
-</div>
+        <!-- Add New Link Form -->
+        <div id="addForm" class="add-form" style="display: none;">
+            <h4>Add New Bookmark</h4>
+            <input type="text" id="newTitle" class="form-control" placeholder="Link Title (e.g. DTS)">
+            <input type="url" id="newUrl" class="form-control" placeholder="https://example.com">
+            <select id="newCategory" class="form-control">
+                <option value="">Select or type new category...</option>
+            </select>
+            <input type="text" id="newCategoryInput" class="form-control" placeholder="Or type a new category" style="display:none;">
+            <div class="mt-2">
+                <button id="saveBookmark" class="btn btn-primary">Save to File</button>
+                <button id="cancelAdd" class="btn btn-secondary">Cancel</button>
+            </div>
+            <div id="saveStatus" class="save-status mt-2"></div>
+        </div>
 
-<!-- Groups -->
-<div id="wrap"></div>
+        <!-- Accordion for Links -->
+        <div id="accordionLinks" class="accordion"></div>
+    </div>
 
-<script type="module">
-import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-const LOGIN="/family-dashboard/main/index.html";
-const COL="eads_links";
+    <!-- RAW TEXT DATA (Human-Readable in Editor) -->
+    <pre id="rawData" class="raw-data">
 
-const $=(s)=>document.querySelector(s);
-const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":"&#39;" }[m]));
-function showErr(t){ const e=$("#err"); e.textContent=t||""; e.style.display=t?"block":"none"; }
+# Separation/Retirement
+TAP Online Courses | https://www.tapevents.mil/courses
+TAP Locations | https://installations.militaryonesource.mil/search?program-service=22/state=Texas
+DBQs | https://www.benefits.va.gov/compensation/dbq_publicdbqs.asp
 
-let ROWS=[], SEL=null;
+# Local Drive Links
+UMD | P:\ADG\Command Staff\(PA) Leadership Info
+GPC Files | P:\SPTS\SCXR\GPC
+SEL Continuity | P:\SPTS\CC\CC-Key Staff\SEL Continuity
+OPM Telework Training | https://www.opm.gov/telework/
+OPM Manager Telework Training | https://www.opm.gov/telework/training/manager-telework-fundamentals/index.htm
+EADS EMSEC Status | https://usaf.dps.mil/:x:/r/sites/34151/224SPTS/SCX/SCXS/_layouts/15/doc2.aspx?sourcedoc=%7Bddd74113-d3a9-41b3-88d1-2089acd79faf%7D&action=view&wdSource=https%3A%2F%2Fusaf.dps.mil%2Fsites%2F34151%2F224SPTS%2FSCX%2FSCXS%2FSitePages%2FEMSEC%20Package%20Status.aspx&wdEWRClick=true&Source=https%3A%2F%2Fusaf.dps.mil%2Fsites%2F34151%2F224SPTS%2FSCX%2FSCXS%2FSitePages%2FEMSEC%20Package%20Status.aspx
 
-onAuthStateChanged(auth, async (u)=>{
-  if(!u){ location.href=LOGIN; return; }
-  const c=document.getElementById("auth");
-  c.innerHTML='<span class="badge">'+u.email+'</span> <a class="btn" href="#" id="signout">Sign out</a>';
-  document.getElementById("signout").onclick=(e)=>{e.preventDefault();signOutUser();};
-  bind(); await load(); 
-});
+# Q Flight/SAPM Links
+IGEMS | https://igems.cce.af.mil/igems/home.do?r=5153317650372121398
+MICT | https://mict.cce.af.mil
+ETIMS | https://etims.cce.af.mil/ETIMS/index
+ePubs | https://www.e-publishing.af.mil/
+Forms & Account Management (FAMS) | https://fams.cce.af.mil/pub/content/saffm/notice.html
+GameChanger (DoD Regs) | https://gamechanger.advana.data.mil/#/gamechanger
+81 TRSS Q-Flight (AFJQS, CFETPs, AFQTPs) | https://usaf.dps.mil/teams/10445/default.aspx
+ANG Waivers | https://intelshare.intelink.gov/sites/angcc/SitePages/ANGWaivers.aspx
+SCOO Compliance Dashboard | https://charlie.cmrs.disa.mil/Pages/ExecutiveComplianceDashboard.aspx?CoamId=12685&drillId=1
 
-function bind(){
-  $("#save").onclick=onSave;
-  $("#update").onclick=onUpdate;
-  $("#remove").onclick=onDelete;
-  $("#clear").onclick=clearForm;
-  $("#q").oninput=render;
-  $("#sort").oninput=render;
-}
+# AF Links
+Ui Path | https://rpa-uipath.cce.af.mil
+Enterprise Service Desk (ESD) | https://eitaas.servicecenter.af.mil/
+Devil Ops | https://devilops.mil/
+AF Portal | https://www.my.af.mil
+PRDA | https://af.okta.mil
+AF Personnel Accountability and Assessment System (AFPAAS) | https://afpaas.af.mil/
+DMDC MilConnect | https://milconnect.dmdc.osd.mil/milconnect/
+SharePoint | https://usaf.dps.mil/_layouts/15/sharepoint.aspx?
+OWA+ Email | https://webmail.apps.mil/mail/inbox
+MS Teams | https://dod.teams.microsoft.us/
+Enterprise Service Desk Portal | https://esd.us.af.mil/ESDPortal/default.aspx
+FASCLASS: Position Descriptions | https://acpol2.army.mil/fasclass/search_fs/search_fasclass.asp?fcp=zutpk3eFRtaToL2jz9lGo6PGjNhhbbzL1emPwaV4cONtl8GM
+BMC Remedy | https://eitsm2.us.af.mil/arsys/forms/app/SHR%3ALandingConsole/Default+Administrator+View/?cacheid=ef8ac618
+Air Force Safety Automated System / MUSTT | https://afsas.safety.af.mil/
+QEB | https://usaf.dps.mil/sites/aficc/afcc/AFICC/771ESS/ccs3/Forms/AllItems.aspx?ga=1&viewid=c96bdc94%2D2025%2D4a5b%2Da5cc%2De48809861e49
+ELICSAR | https://elicsar.cce.af.mil/
 
-async function load(){
-  const snap = await getDocs(query(collection(db,COL), orderBy("category","asc"), orderBy("title","asc")));
-  ROWS = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-  $("#count").textContent = ROWS.length+" link(s)";
-  render();
-}
+# TDY Links
+Smart Traveller Enrollment Program | https://step.state.gov/STEP/pages/individuals/emailtravelinfo.aspx
+Citi Commercial Card | https://home.cards.citidirect.com/CommercialCard/login
+DTS | https://dtsproweb.defensetravel.osd.mil/dts-app/pubsite/all/view
+DTS Guidance | https://usaf.dps.mil/sites/34151/224ADS/OSF/SitePages/Home.aspx
+State.ca | https://travel.state.gov/content/travel/en/international-travel/International-Travel-Country-Information-Pages/Canada.html
 
-function render(){
-  const q = ($("#q").value||"").toLowerCase();
-  let rows = ROWS.filter(r=>{
-    const hay=(r.title+" "+r.category+" "+r.url).toLowerCase();
-    return !q || hay.includes(q);
-  });
+# Supervisory
+Chat GPT | https://openai.com/
+Ask Sage - Gov AI | https://chat.asksage.ai/dashboard/
+Rapid EPR | https://rapidepr.com/generate/
+AF Acronyms | https://www.afpc.af.mil/Career-Management/Acronyms/
+USA Staffing | https://hm.usastaffing.gov/dashboard
 
-  const mode=$("#sort").value;
-  if(mode==="created"){
-    rows.sort((a,b)=> (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
-  }else if(mode==="name"){
-    rows.sort((a,b)=> (a.title||"").localeCompare(b.title||""));
-  }else{
-    rows.sort((a,b)=> (a.category||"").localeCompare(b.category||"") || (a.title||"").localeCompare(b.title||""));
-  }
+# Records & Readiness
+Schedule MHA | https://smp.qtcm.com/my.policy
+vPC | https://mypers.af.mil/
+myFSS | https://myfss.us.af.mil/USAFCommunity/s/login/?ec=302&startURL=%2FUSAFCommunity%2Fs%2F
+myIMR | https://asimsimr.health.mil/imr/myIMR.aspx
+MHS Genesis Patient Portal | https://patientportal.mhsgenesis.health.mil/
 
-  // group by category
-  const groups = {};
-  rows.forEach(r=>{
-    const k=r.category||"Uncategorized";
-    (groups[k]||(groups[k]=[])).push(r);
-  });
+# GPC Links
+PIEE / US Bank | https://piee.eb.mil/xhtml/unauth/home/login.xhtml
+Thomas Register (GPC Suppliers) | https://www.thomasnet.com/suppliers/
+GSA Advantage (GPC Suppliers) | https://www.gsaadvantage.gov
+IBVI | https://www.ibvisupply.com/
+AFWAY | https://www.afway.af.mil/login.aspx
+DAU Login | https://id.dau.edu/
+Mastercard IOD | https://iodgov.oversightsystems.us
+GPC Excel Files | P:\SPTS\SCXR\GPC\
+Form 14 for processing | P:\SPTS\SCXR\GPC\Wing 14s\FY23 Form-14's
+AFWAY Purchasing | https://www.afway.af.mil/Default.aspx
+GPC FY24 PRAFs | P:\SPTS\SCXR\GPC\FY24
 
-  const wrap=$("#wrap"); wrap.innerHTML="";
-  Object.keys(groups).sort().forEach(cat=>{
-    const g=document.createElement("div"); g.className="group";
-    g.innerHTML=`<h3>${esc(cat)}</h3><div class="gridLinks"></div>`;
-    const grid=g.querySelector(".gridLinks");
-    groups[cat].forEach(r=>{
-      const el=document.createElement("div");
-      el.className="tile";
-      el.innerHTML=`
-        <a class="btn go" href="${esc(r.url)}" target="_blank" rel="noopener">
-          <div class="title">${esc(r.title||r.url)}</div>
-          <div class="sub">${esc(r.url)}</div>
-        </a>
-        <div class="actions">
-          <button class="btn edit" data-id="${r.id}">Edit</button>
-          <button class="btn del" data-id="${r.id}">Delete</button>
-        </div>`;
-      grid.appendChild(el);
-    });
-    wrap.appendChild(g);
-  });
+# Training
+ETCA (Formal Schools) | https://usaf.dps.mil/teams/app10-etca/sitepages/home.aspx
+myLearning | https://lms-jets.cce.af.mil/moodle/
+myTraining | https://sso.josce.mil/auth/realms/sso/protocol/openid-connect/auth?client_id=tftr_production&redirect_uri=https%3A%2F%2Ftftr.josce.mil%2F%23%2F&state=71661d7c-ebce-49c2-8905-deca8e02872e&response_mode=fragment&response_type=code&scope=openid&nonce=fa856caa-62e3-423c-88d9-f0fabd2395e6
+AFVEC | https://afvec.us.af.mil/afvec/public/welcome
+CISA Cybersecurity Training | https://us-cert.cisa.gov/ics/Training-Available-Through-ICS-CERT
+ANG TEC Training | https://www.angtec.ang.af.mil/Courses/TEC-University/
+Joint Knowledge Online (JKO) | https://jkodirect.jten.mil/Atlas2/page/login/Login.jsf
+Equipment Custodian Training | https://usaf.dps.mil/teams/ccc/itam/SitePages/Home.aspx
+Telework Training | https://www.telework.gov/training-resources/telework-training/virtual-telework-fundamentals-training-courses/
+DCITA | http://www.dcita.edu/
+FedVTE | https://fedvte.usalearning.gov/
+Skillport | https://usafprod.skillport.com/
+Percipio Skill Level UGT | https://usaf.percipio.com
+AF UNITE Program | https://www.acc.af.mil/About-Us/The-Bridge/UNITE-PROGRAM/
+AFSAS Motorcycle Safety Profile | https://afsas.safety.af.mil/
+MyFSS Training Library | https://afbpap.my.salesforce.mil/sfc/p/#t0000000LB5w/a/t00000008OJ8/tjqyW.eQC5yJ1B412NSJxeCWohnMv9qo8wd1p7rA1yU
 
-  // wire edit/delete
-  document.querySelectorAll(".edit").forEach(b=> b.onclick=()=> select(b.dataset.id));
-  document.querySelectorAll(".del").forEach(b=> b.onclick=()=> remove(b.dataset.id));
-}
+# Personnel Management
+Title 5 Sharepoint | https://usaf.dps.mil/teams/224thADGAll-Title5/Shared%20Documents/Forms/AllItems.aspx?e=5%3A09e5ac6a81274630b291e492fa739657&sharingv2=true&fromShare=true&cid=aad65b44%2D6223%2D4972%2Da952%2D80bde4c18744&RootFolder=%2Fteams%2F224thADGAll%2DTitle5%2FShared%20Documents%2FTitle%205&FolderCTID=0x01200082D8BEA32B753947BBB9B1DD166C3932
+USA Staffing | https://hm.usastaffing.gov/dashboard
+A6 Cyber Roster | https://intelshare.intelink.gov/sites/ngba26/Module/CyberRoster/cyberroster.aspx
+E&O Development | https://sites.google.com/view/mtang-development/home
+myBiz | https://compo.dcpds.cpms.osd.mil/
+Title 5 Supervisor Training | https://usaf.dps.mil/sites/34151/T5%20Supervisor%20Training/Forms/AllItems.aspx?viewpath=%2Fsites%2F34151%2FT5%20Supervisor%20Training%2FForms%2FAllItems%2Easpx
+ATAAPS | https://af.ataaps.csd.disa.mil/ataaps_AF4/
+T5 Annual Appraisal Guidance | https://usaf.dps.mil/teams/224thADGAll/Shared%20Documents/Forms/AllItems.aspx?id=%2Fteams%2F224thADGAll%2FShared%20Documents%2FTitle%20Five%2FAnnual%20appraisals%20%28DPMAP%5FMyBiz%29&p=true&fromShare=true&ga=1
+SCP Schedule | https://dod.teams.microsoft.us/l/channel/19%3Adod%3A6f671da624254a179f4d10cefdf434aa%40thread.skype/tab%3A%3A075b1290-8372-4c52-9182-c039d77f4112?groupId=d0fa7121-9dfb-4493-ac0d-ed7a6d81a450&tenantId=8331b18d-2d87-48ef-a35f-ac8818ebf9b4&allowXTenantAccess=false
+174 ATKW Comptroller (Manual Time Cards) | https://usaf.dps.mil/teams/SAFFMCSP/portal/SitePages/Home.aspx
+T5 Manual Time Card | https://usaf.dps.mil/:b:/r/sites/34151/T5%20Supervisor%20Training/EADS%20Manual%20Civilian%20Timecard%202023%20BLANK%20fillable.pdf?csf=1&web=1&e=cxK9c1
+MP ICAM Registration Portal | https://mpartnerregweb.dmdc.osd.mil/mpartnerregweb/app/
+MP ICAM Sponsorship Portal | https://mpartnerspnrweb.dmdc.osd.mil/mpartnerspnrweb/app/
 
-function readForm(){
-  const title=$("#f_title").value.trim();
-  const category=$("#f_cat").value.trim();
-  const url=$("#f_url").value.trim();
-  if(!title){ showErr("Title required"); return null; }
-  if(!url || !/^https?:\/\//i.test(url)){ showErr("Valid URL starting with http(s) required"); return null; }
-  return { title, category, url };
-}
+# Jobs
+DMNA Jobs | https://dmna.ny.gov/jobs/
+Nationwide MVA/ADOS/AGR Jobs | https://intelshare.intelink.gov/sites/ngbhr/careers/SitePages/Home.aspx
+AGR Program | https://static.e-publishing.af.mil/production/1/ang/publication/angi36-101/angi36-101.pdf
+USA Jobs | https://www.usajobs.gov/
+Clearance Jobs | https://www.clearancejobs.com/
 
-async function onSave(){
-  showErr(""); const data=readForm(); if(!data) return;
-  try{
-    $("#save").disabled=true;
-    await addDoc(collection(db,COL), { ...data, createdAt: serverTimestamp() });
-    clearForm(); await load();
-  }catch(e){ showErr(e.message||String(e)); }
-  finally{ $("#save").disabled=false; }
-}
+# Sharepoint Links
+BCC Conf Room | https://usaf.dps.mil/sites/34151/Lists/BCC%20Conf%20Room/calendar.aspx
+Visio Online | https://usaf.dps.mil/teams/sos/SitePages/Home.aspx
+Key Staff Calendar | https://usaf.dps.mil/sites/34151/224SPTS/Lists/Key%20Staff%20Calendar/calendar.aspx
+EADS Sharepoint | https://usaf.dps.mil/sites/34151/sitepages/home.aspx
+EADS Strategic Calendar | https://usaf.dps.mil/sites/34151/224ADS/EADSStrategicCalendar/Shared Documents/EADSStratCal.aspx
+TEAMS BYOD | https://usaf.dps.mil/sites/BYOADSSP/SitePages/Training.aspx
+CCF Awards | https://usaf.dps.mil/sites/34151/224ADG/CCF/EADS%20Award%20Programs/Forms/AllItems.aspx?viewpath=%2Fsites%2F34151%2F224ADG%2FCCF%2FEADS%20Award%20Programs%2FForms%2FAllItems%2Easpx
+Enterprise CISP | https://usaf.dps.mil/teams/EAO/Pages/CISPWiki.aspx
+AF Evaluated Products List (EPL) | https://usaf.dps.mil/teams/EAO/Lists/COTSGOTS%20Software/EPL.aspx
+SCQ Deficiencies | https://dod.teams.microsoft.us/l/file/CE390B84-1D6D-4C27-8D8E-E061EB4B4EC1?tenantId=8331b18d-2d87-48ef-a35f-ac8818ebf9b4&fileType=xlsx&objectUrl=https%3A%2F%2Fusaf.dps.mil%2Fteams%2F224thSPTS%2FShared%20Documents%2FSCQA%2F224th%20SPTS%20QA%2F1.%20Equipment%20Deficiency%20Tracker-%20DO%20NOT%20MODIFY%2FDeficiency%20Tracker_Trend_analysis_EE_V2.xlsx&baseUrl=https%3A%2F%2Fusaf.dps.mil%2Fteams%2F224thSPTS&serviceName=teams&threadId=19:dod:e6c38662b14a44debd68bed188b58ce1@thread.skype&allowXTenantAccess=false&groupId=d0fa7121-9dfb-4493-ac0d-ed7a6d81a450
+EADS Priority Matrix | https://usaf.dps.mil/teams/224thADGAll/Shared%20Documents/Forms/AllItems.aspx?csf=1&web=1&e=ISctLQ&cid=6702f92a%2D70d8%2D43f3%2Dbb0f%2Daffd6ae76690&RootFolder=%2Fteams%2F224thADGAll%2FShared%20Documents%2FGeneral%2FCommunications%20Focal%20Point%20Priority%20Matrix&FolderCTID=0x0120004C404037CA92FC4F96CD57E9FA933F70
 
-async function onUpdate(){
-  if(!SEL) return; showErr(""); const data=readForm(); if(!data) return;
-  try{
-    $("#update").disabled=true;
-    await updateDoc(doc(db,COL,SEL), data);
-    clearForm(); await load();
-  }catch(e){ showErr(e.message||String(e)); }
-  finally{ $("#update").disabled=false; }
-}
+# Other Links
+NNC Portal | https://register.noradnorthcom.mil/IdentityManagement/default.aspx
+CIPS | https://cips.cce.af.mil/CIPS5/Organization/Details/5462211
+CIPS Workorders | https://cips.cce.af.mil/CIPS5/WorkOrder/WorkOrderIndex
+CIPS Training | https://forms.osi.apps.mil/Pages/ResponsePage.aspx?id=jbExg4ct70ijX6yIGOv5tETwDg4S9z1NuToqB2XxAn9UOThKRFVQV0pDU0g1STFLWlVOU0JWSTU3QSQlQCN0PWcu
+MCCC Sharepoint | https://usaf.dps.mil/sites/angmccc/SitePages/Home.aspx
+ANG Cyber MilSuite | https://www.milsuite.mil/book/groups/ang-enlisted-cyber-space-career-field-management
+Mango Languages | https://learn.mangolanguages.com/login
+Navy Senior Enlisted Academy | https://www.netc.navy.mil/SEA/
+ESD Portal MTOs | https://esd.us.af.mil/ESDPortal/SearchKB.aspx?presetquery=mto
+Equipment Custodian/IT Asset Management | https://usaf.dps.mil/teams/ccc/itam/SitePages/Home.aspx
+DoD Prohibited Dietary Supplements | https://www.opss.org/dod-prohibited-dietary-supplement-ingredients
+ITAC (Crypto Reporting) (SRAN 6324 / 634584) | https://itac.lackland.af.mil/itac/CAC_login.asp?target=/itac/default.asp?
+Envision (NIPR Crypto Reporting) | https://envision.af.mil
+AIS List | https://ceds.gunter.af.mil/AISList.aspx
+DoDM 8140.03 | https://www.esd.whs.mil/Portals/54/Documents/DD/issuances/dodm/814003p.PDF
+8140 Job Codes | https://dl.dod.cyber.mil/wp-content/uploads/dcwf/ElementsMap/story.html
+8140 Certs & Education | https://usaf.dps.mil/:x:/r/teams/224thSPTS/Shared Documents/SCXS/8570/DoD_8140_Certifications_Education.xlsx?d=w87ac8114a72644348c38a18ae92a5b22&csf=1&web=1&e=8CLkAq
+CBC2 | https://sso-cbc2.cce.af.mil/auth/realms/CBC2/protocol/openid-connect/auth?client_id=portal&redirect_uri=https%3A%2F%2Fportal-cbc2.cce.af.mil%2F&state=43c39df1-fe6a-4d2a-ae2c-522aa03fab6e&response_mode=fragment&response_type=code&scope=openid&nonce=b79a1f42-d59b-4c87-96e3-2b0d14e5a022
+Grok | https://safe.menlosecurity.com/https://grok.com
+    </pre>
 
-async function onDelete(){
-  if(!SEL) return;
-  if(!confirm("Delete this link?")) return;
-  try{
-    $("#remove").disabled=true;
-    await deleteDoc(doc(db,COL,SEL));
-    clearForm(); await load();
-  }catch(e){ showErr(e.message||String(e)); }
-  finally{ $("#remove").disabled=false; }
-}
+    <script>
+        let fileHandle = null;
+        let linkData = [];
 
-function clearForm(){
-  SEL=null; $("#f_title").value=""; $("#f_cat").value=""; $("#f_url").value="";
-  $("#sel").textContent="none"; $("#update").disabled=true; $("#remove").disabled=true;
-}
+        // === MAIN INIT ===
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Parse data
+            const rawText = document.getElementById('rawData').textContent.trim();
+            parseRawData(rawText);
+            renderAccordion();
+            populateCategories();
 
-function select(id){
-  const r=ROWS.find(x=>x.id===id); if(!r) return;
-  SEL=id; $("#sel").textContent="Selected "+id;
-  $("#f_title").value=r.title||""; $("#f_cat").value=r.category||""; $("#f_url").value=r.url||"";
-  $("#update").disabled=false; $("#remove").disabled=false;
-}
+            // Request file access
+            await requestFileAccess();
 
-// direct delete from tile
-async function remove(id){
-  if(!confirm("Delete this link?")) return;
-  try{ await deleteDoc(doc(db,COL,id)); if(SEL===id) clearForm(); await load(); }
-  catch(e){ showErr(e.message||String(e)); }
-}
-</script>
-</body></html>
+            // Setup UI
+            setupEvents();
+        });
 
+        // === REQUEST FILE ACCESS ===
+        async function requestFileAccess() {
+            if ('showOpenFilePicker' in window) {
+                try {
+                    [fileHandle] = await window.showOpenFilePicker({
+                        types: [{ description: 'HTML Files', accept: { 'text/html': ['.html'] }}],
+                        multiple: false
+                    });
+                    console.log("File access granted:", fileHandle.name);
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        alert("File access denied. Save will not work. Open in Chrome/Edge and allow access.");
+                    }
+                }
+            } else {
+                alert("Your browser does not support file saving.");
+            }
+        }
+
+        // === PARSE RAW DATA ===
+        function parseRawData(text) {
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            let current = null;
+            linkData = [];
+
+            lines.forEach(line => {
+                if (line.startsWith('# ')) {
+                    const cat = line.slice(2).trim();
+                    if (cat) {
+                        current = { 
+                            category: cat, 
+                            id: cat.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '') || 'cat',
+                            links: [] 
+                        };
+                        linkData.push(current);
+                    }
+                } else if (line.includes('|') && current) {
+                    const [name, url] = line.split('|').map(s => s.trim());
+                    if (name && url) current.links.push({ name, url });
+                }
+            });
+        }
+
+        // === RENDER ACCORDION ===
+        function renderAccordion() {
+            const container = document.getElementById('accordionLinks');
+            container.innerHTML = '';
+            linkData.forEach(cat => {
+                const item = document.createElement('div');
+                item.className = 'accordion-item';
+                item.innerHTML = `
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-${cat.id}">${cat.category} <small class="text-muted">(${cat.links.length})</small></button>
+                    </h2>
+                    <div id="collapse-${cat.id}" class="accordion-collapse collapse" data-bs-parent="#accordionLinks">
+                        <div class="accordion-body">
+                            <div class="d-flex flex-wrap justify-content-center" id="links-${cat.id}"></div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+                const linksDiv = item.querySelector(`#links-${cat.id}`);
+                cat.links.forEach(l => {
+                    const a = document.createElement('a');
+                    a.href = l.url; 
+                    a.target = '_blank'; 
+                    a.className = 'btn btn-custom';
+                    a.textContent = l.name;
+                    linksDiv.appendChild(a);
+                });
+            });
+        }
+
+        // === POPULATE CATEGORIES ===
+        function populateCategories() {
+            const select = document.getElementById('newCategory');
+            select.innerHTML = '<option value="">Select or type new category...</option>';
+            linkData.forEach(cat => {
+                const opt = new Option(cat.category, cat.category);
+                select.appendChild(opt);
+            });
+        }
+
+        // === SETUP EVENTS ===
+        function setupEvents() {
+            document.getElementById('darkModeToggle').onclick = () => document.body.classList.toggle('dark-mode');
+            document.getElementById('addBookmarkBtn').onclick = () => {
+                document.getElementById('addForm').style.display = 'block';
+                document.getElementById('newTitle').focus();
+            };
+            document.getElementById('cancelAdd').onclick = () => {
+                document.getElementById('addForm').style.display = 'none';
+                clearForm();
+            };
+            document.getElementById('newCategory').onchange = function() {
+                document.getElementById('newCategoryInput').style.display = this.value ? 'none' : 'block';
+            };
+            document.getElementById('saveBookmark').onclick = saveBookmark;
+            document.getElementById('searchInput').oninput = searchLinks;
+        }
+
+        // === CLEAR FORM ===
+        function clearForm() {
+            ['newTitle','newUrl','newCategory','newCategoryInput'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('newCategoryInput').style.display = 'none';
+        }
+
+        // === SAVE BOOKMARK ===
+        async function saveBookmark() {
+            const title = document.getElementById('newTitle').value.trim();
+            const url = document.getElementById('newUrl').value.trim();
+            let category = document.getElementById('newCategory').value || document.getElementById('newCategoryInput').value.trim();
+            if (!category) category = "Uncategorized";
+
+            if (!title || !url) return alert("Please fill in Title and URL");
+            if (!url.match(/^https?:\/\//i)) return alert("URL must start with http:// or https://");
+
+            // Add to data
+            let catObj = linkData.find(c => c.category === category);
+            if (!catObj) {
+                const id = category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '') || 'cat';
+                catObj = { category, id, links: [] };
+                linkData.push(catObj);
+            }
+            catObj.links.push({ name: title, url });
+
+            // Save to file
+            if (fileHandle) {
+                try {
+                    const writable = await fileHandle.createWritable();
+                    const newHtml = generateUpdatedHtml();
+                    await writable.write(newHtml);
+                    await writable.close();
+
+                    document.getElementById('saveStatus').textContent = "Saved to file!";
+                    setTimeout(() => document.getElementById('saveStatus').textContent = '', 3000);
+                } catch (e) {
+                    console.error("Save error:", e);
+                    alert("Save failed: " + e.message);
+                }
+            } else {
+                alert("No file access. Open the file and allow access to save.");
+            }
+
+            // Update UI
+            renderAccordion();
+            populateCategories();
+            clearForm();
+            document.getElementById('addForm').style.display = 'none';
+        }
+
+        // === GENERATE UPDATED HTML ===
+        function generateUpdatedHtml() {
+            let raw = '';
+            linkData.forEach(cat => {
+                raw += `# ${cat.category}\n`;
+                cat.links.forEach(l => raw += `${l.name} | ${l.url}\n`);
+                raw += '\n';
+            });
+
+            const pre = document.getElementById('rawData');
+            const indent = pre.outerHTML.match(/^\s*/)[0];
+            const lines = raw.trim().split('\n');
+            const indentedLines = lines.map(line => indent + '    ' + line);
+            const newPreContent = indentedLines.join('\n');
+
+            return document.documentElement.outerHTML.replace(
+                /<pre id="rawData"[\s\S]*?<\/pre>/,
+                `<pre id="rawData" class="raw-data">\n${newPreContent}\n${indent}    </pre>`
+            );
+        }
+
+        // === SEARCH ===
+        function searchLinks() {
+            const query = this.value.toLowerCase();
+            document.querySelectorAll('.btn-custom').forEach(btn => {
+                btn.style.display = btn.textContent.toLowerCase().includes(query) ? 'inline-block' : 'none';
+            });
+            document.querySelectorAll('.accordion-item').forEach(item => {
+                const visible = item.querySelectorAll('.btn-custom[style*="inline-block"]').length > 0;
+                item.style.display = visible ? 'block' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>
