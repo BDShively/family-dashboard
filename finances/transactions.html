@@ -1,10 +1,12 @@
 <!-- /family-dashboard/finances/transactions.html -->
-<!doctype html><html lang="en"><head>
+<!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Finances · Transactions</title>
 <link rel="stylesheet" href="/family-dashboard/css/base.css"/>
 <style>
-:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a;--accent:#2e5cff}
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,Inter}
 a{color:inherit;text-decoration:none}
 header{display:flex;justify-content:space-between;align-items:center;padding:16px}
@@ -22,6 +24,9 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
 .small{font-size:12px;color:var(--muted)}
 .tag{padding:2px 6px;border:1px solid var(--line);border-radius:8px;background:#0f1330;font-size:12px;color:var(--muted)}
 .kv{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px}
+.toast{display:none;margin:0 12px;padding:8px 10px;border-radius:10px}
+.toast.ok{display:block;background:#0f2a1a;border:1px solid #2f6e4a;color:#d9ffea}
+.toast.err{display:block;background:#2a0f12;border:1px solid #6a2b2b;color:#ffd6d6}
 .runbox{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1330}
 </style>
 </head>
@@ -34,7 +39,7 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
   <div id="auth"></div>
 </header>
 
-<div id="err" class="card" style="display:none;background:#2a0f12;color:#ffd6d6;border-color:#5a2b2b"></div>
+<div id="toast" class="toast"></div>
 
 <!-- Accounts -->
 <div class="card">
@@ -44,7 +49,7 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
       <button id="acctNew" class="btn">+ New</button>
     </div>
     <div class="row small">
-      <span class="tag">Tip: set Starting Balance on the account; running balance = starting + period txns.</span>
+      <span class="tag">Set a Starting Balance; running balance = starting + month txns.</span>
     </div>
   </div>
   <div id="acctForm" class="row" style="display:none;margin-top:8px">
@@ -64,7 +69,7 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
   </table>
 </div>
 
-<!-- Controls -->
+<!-- Filters -->
 <div class="card">
   <div class="row">
     <label>Month <input id="month" type="month"></label>
@@ -115,7 +120,7 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
   </div>
 </div>
 
-<!-- Running balance + Table -->
+<!-- Transactions -->
 <div class="card">
   <div class="row" style="justify-content:space-between">
     <div class="row">
@@ -144,25 +149,32 @@ import {
 
 const LOGIN="/family-dashboard/main/index.html";
 const $=s=>document.querySelector(s);
-const showErr=(m)=>{const el=$("#err"); if(m){el.textContent=m; el.style.display="block";} else {el.style.display="none"; el.textContent="";}};
+
+function toast(msg, ok=false){
+  const el=$("#toast");
+  el.textContent=msg||"";
+  el.className = "toast " + (ok? "ok":"err");
+  if(!msg){ el.className="toast"; }
+}
 
 const state={ user:null, accts:[], txns:[], acctEditId:null };
 
-onAuthStateChanged(auth,(u)=>{
-  if(!u){ location.href=LOGIN; return; }
-  state.user=u;
-  $("#auth").innerHTML=`<span class="badge">${u.email}</span> <a class="btn" href="#" id="so">Sign out</a>`;
-  $("#so").onclick=e=>{e.preventDefault();signOutUser();};
-  init();
-});
-
-/* LOCAL date helpers (avoid UTC drift) */
+/* Local date helpers (avoid UTC drift) */
 function localISO(d=new Date()){const tz=d.getTimezoneOffset()*60000;return new Date(d.getTime()-tz).toISOString().slice(0,10);}
 function todayISO(){return localISO();}
 function yyyymm(d){return localISO(d).slice(0,7);}
 function money(n){const x=Number(n)||0;return (x<0? "-$":"$")+Math.abs(x).toFixed(2);}
 function parseAmt(v){return Number(String(v||"").replace(/[\$,]/g,""))||0;}
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+
+onAuthStateChanged(auth,(u)=>{
+  if(!u){ location.href=LOGIN; return; }
+  state.user=u;
+  $("#auth").innerHTML=`<span class="badge">${u.email}</span> <a class="btn" href="#" id="so">Sign out</a>`;
+  $("#so").onclick=e=>{e.preventDefault();signOutUser();};
+
+  init();
+});
 
 function init(){
   $("#month").value=yyyymm(new Date());
@@ -188,11 +200,22 @@ function init(){
 
 /* ACCOUNTS */
 async function loadAccts(){
-  const snap=await getDocs(query(collection(db,"fin_accounts"), where("owner","==",state.user.email), orderBy("name","asc")));
-  state.accts=snap.docs.map(d=>({id:d.id,...d.data()}));
-  renderAccts();
-  renderAcctFilters();
-  renderTxnAcctSelects();
+  try{
+    toast("");
+    // No orderBy here; sort client-side to avoid index requirement
+    const snap=await getDocs(query(
+      collection(db,"fin_accounts"),
+      where("owner","==",state.user.email)
+    ));
+    state.accts=snap.docs.map(d=>({id:d.id,...d.data()}));
+    // client sort by name
+    state.accts.sort((a,b)=>String(a.name||"").localeCompare(String(b.name||"")));
+    renderAccts();
+    renderAcctFilters();
+    renderTxnAcctSelects();
+  }catch(e){
+    toast(e.message||String(e));
+  }
 }
 
 function renderAccts(){
@@ -221,34 +244,9 @@ function renderAccts(){
       if(!confirm("Delete account? (Transactions remain but will reference a missing account.)"))return;
       await deleteDoc(doc(db,"fin_accounts",b.dataset.id));
       await loadAccts(); render();
+      toast("Account deleted", true);
     };
   });
-}
-
-function openAcctForm(a=null){
-  state.acctEditId=a?a.id:null;
-  $("#acctForm").style.display="flex";
-  $("#af_name").value=a?.name||"";
-  $("#af_type").value=a?.type||"Checking";
-  $("#af_start").value=a?.startingBalance??"";
-  $("#af_notes").value=a?.notes||"";
-}
-function closeAcctForm(){ $("#acctForm").style.display="none"; state.acctEditId=null; }
-
-async function saveAcct(){
-  const payload={
-    owner: state.user.email,
-    name: $("#af_name").value.trim(),
-    type: $("#af_type").value,
-    startingBalance: $("#af_start").value===""? 0: parseAmt($("#af_start").value),
-    notes: $("#af_notes").value.trim(),
-    updatedAt: serverTimestamp(),
-    createdAt: state.acctEditId? undefined: serverTimestamp()
-  };
-  if(!payload.name){ showErr("Account name required."); return; }
-  if(state.acctEditId) await updateDoc(doc(db,"fin_accounts",state.acctEditId),payload);
-  else await addDoc(collection(db,"fin_accounts"),payload);
-  closeAcctForm(); await loadAccts(); renderTxnAcctSelects();
 }
 
 function renderAcctFilters(){
@@ -265,19 +263,41 @@ function renderTxnAcctSelects(){
   });
 }
 
-/* TRANSACTIONS */
-async function loadTxns(){
-  const month=$("#month").value;
-  const snap=await getDocs(query(
-    collection(db,"fin_txns"),
-    where("owner","==",state.user.email),
-    where("month","==",month),
-    orderBy("date","asc"), orderBy("createdAt","asc")
-  ));
-  state.txns=snap.docs.map(d=>({id:d.id,...d.data()}));
-  render();
+function openAcctForm(a=null){
+  state.acctEditId=a?a.id:null;
+  $("#acctForm").style.display="flex";
+  $("#af_name").value=a?.name||"";
+  $("#af_type").value=a?.type||"Checking";
+  $("#af_start").value=a?.startingBalance??"";
+  $("#af_notes").value=a?.notes||"";
+}
+function closeAcctForm(){ $("#acctForm").style.display="none"; state.acctEditId=null; }
+
+async function saveAcct(){
+  try{
+    const payload={
+      owner: state.user.email,
+      name: $("#af_name").value.trim(),
+      type: $("#af_type").value,
+      startingBalance: $("#af_start").value===""? 0: parseAmt($("#af_start").value),
+      notes: $("#af_notes").value.trim(),
+      updatedAt: serverTimestamp(),
+      createdAt: state.acctEditId? undefined: serverTimestamp()
+    };
+    if(!payload.name){ toast("Account name required."); return; }
+
+    if(state.acctEditId) await updateDoc(doc(db,"fin_accounts",state.acctEditId),payload);
+    else await addDoc(collection(db,"fin_accounts"),payload);
+
+    closeAcctForm();
+    await loadAccts();          // refresh accounts table and selects
+    toast("Account saved", true);
+  }catch(e){
+    toast(e.message||String(e));
+  }
 }
 
+/* TRANSACTIONS */
 function toggleTransfer(){
   const t=$("#t_type").value;
   $("#accToWrap").style.display = t==="transfer" ? "block":"none";
@@ -295,32 +315,73 @@ function resetTxnForm(){
   $("#t_cleared").checked=false;
 }
 
-async function saveTxn(){
-  const type=$("#t_type").value;
-  const date=$("#t_date").value || todayISO();
-  const month=date.slice(0,7);
-  const accountId=$("#t_account").value || null;
-  const accountIdTo=$("#t_accountTo").value || null;
-  const amount=parseAmt($("#t_amount").value);
-  const category=$("#t_cat").value.trim();
-  const notes=$("#t_notes").value.trim();
-  const cleared=$("#t_cleared").checked;
-
-  if(type!=="transfer" && !accountId){ showErr("Select an account."); return; }
-  if(type==="transfer" && (!accountId || !accountIdTo || accountId===accountIdTo)){ showErr("Select two different accounts."); return; }
-  if(!amount || amount<=0){ showErr("Enter a positive amount."); return; }
-
-  const payload={
-    owner: state.user.email, type, date, month, accountId, accountIdTo: type==="transfer"? accountIdTo:null,
-    amount, category: type==="transfer"? "Transfer": category|| (type==="income"?"Income":"Expense"),
-    notes, cleared, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-  };
-  await addDoc(collection(db,"fin_txns"), payload);
-  resetTxnForm(); await loadTxns();
+async function loadTxns(){
+  try{
+    toast("");
+    const month=$("#month").value;
+    // Prefer indexed query; if it fails, fall back to owner-only and filter client-side
+    let txDocs=[];
+    try{
+      const snap=await getDocs(query(
+        collection(db,"fin_txns"),
+        where("owner","==",state.user.email),
+        where("month","==",month),
+        orderBy("date","asc"), orderBy("createdAt","asc")
+      ));
+      txDocs=snap.docs;
+    }catch(err){
+      // Fallback: fetch by owner, filter/sort client-side (no composite index needed)
+      const snap=await getDocs(query(
+        collection(db,"fin_txns"),
+        where("owner","==",state.user.email)
+      ));
+      txDocs = snap.docs.filter(d=>(d.data().month===month));
+      txDocs.sort((a,b)=>{
+        const da=(a.data().date||""), db=(b.data().date||"");
+        if(da===db){ return (a.data().createdAt?.seconds||0)-(b.data().createdAt?.seconds||0); }
+        return da<db? -1: 1;
+      });
+      toast("Using fallback (create composite index for fin_txns to speed up).", true);
+    }
+    state.txns=txDocs.map(d=>({id:d.id,...d.data()}));
+    render();
+  }catch(e){
+    toast(e.message||String(e));
+  }
 }
 
+async function saveTxn(){
+  try{
+    const type=$("#t_type").value;
+    const date=$("#t_date").value || todayISO();
+    const month=date.slice(0,7);
+    const accountId=$("#t_account").value || null;
+    const accountIdTo=$("#t_accountTo").value || null;
+    const amount=parseAmt($("#t_amount").value);
+    const category=$("#t_cat").value.trim();
+    const notes=$("#t_notes").value.trim();
+    const cleared=$("#t_cleared").checked;
+
+    if(type!=="transfer" && !accountId){ toast("Select an account."); return; }
+    if(type==="transfer" && (!accountId || !accountIdTo || accountId===accountIdTo)){ toast("Select two different accounts."); return; }
+    if(!amount || amount<=0){ toast("Enter a positive amount."); return; }
+
+    const payload={
+      owner: state.user.email, type, date, month, accountId, accountIdTo: type==="transfer"? accountIdTo:null,
+      amount, category: type==="transfer"? "Transfer": category|| (type==="income"?"Income":"Expense"),
+      notes, cleared, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    };
+    await addDoc(collection(db,"fin_txns"), payload);
+    resetTxnForm();
+    await loadTxns();
+    toast("Transaction saved", true);
+  }catch(e){
+    toast(e.message||String(e));
+  }
+}
+
+/* Render */
 function render(){
-  showErr("");
   const acctSel=$("#filterAcct").value;
   const status=$("#filterCleared").value;
   const txt=($("#search").value||"").toLowerCase();
@@ -343,39 +404,38 @@ function render(){
 
   $("#counts").textContent=`${data.length} shown · ${state.txns.length} total`;
 
-  // Running balance per selected account or all
+  // Running balance per selected account
   let running=0;
-  const month=$("#month").value;
   const acct = acctSel==="all" ? null : state.accts.find(a=>a.id===acctSel);
   if(acct){ running = Number(acct.startingBalance||0); }
 
   const tb=$("#rows"); tb.innerHTML="";
   data.forEach(tx=>{
-    // compute delta for running when an account is focused
-    let delta=0;
-    if(acct){ // per-account running
-      if(tx.type==="income" && tx.accountId===acct.id) delta += tx.amount;
-      if(tx.type==="expense" && tx.accountId===acct.id) delta -= tx.amount;
+    // compute delta for running when a single account is focused
+    if(acct){
+      if(tx.type==="income" && tx.accountId===acct.id) running += tx.amount;
+      if(tx.type==="expense" && tx.accountId===acct.id) running -= tx.amount;
       if(tx.type==="transfer"){
-        if(tx.accountId===acct.id) delta -= tx.amount;
-        if(tx.accountIdTo===acct.id) delta += tx.amount;
+        if(tx.accountId===acct.id) running -= tx.amount;
+        if(tx.accountIdTo===acct.id) running += tx.amount;
       }
-      running += delta;
     }
 
-    const tr=document.createElement("tr");
     const cat = tx.type==="transfer"
       ? `Transfer: ${esc(acctName(tx.accountId)||"?")} → ${esc(acctName(tx.accountIdTo)||"?")}`
       : esc(tx.category||"");
-    const amt = (tx.type==="income" || (tx.type==="transfer" && acct && tx.accountIdTo===acct.id))
-      ? money(tx.amount) : money(-tx.amount);
 
+    const amtSigned =
+      (tx.type==="income" || (tx.type==="transfer" && acct && tx.accountIdTo===acct.id))
+        ? tx.amount : -tx.amount;
+
+    const tr=document.createElement("tr");
     tr.innerHTML=`
       <td>${tx.date}</td>
       <td>${tx.type}</td>
       <td>${esc(acctName(tx.accountId)||"")}${tx.type==="transfer" && acctSel==="all" ? ` → ${esc(acctName(tx.accountIdTo)||"")}`:""}</td>
       <td>${cat}</td>
-      <td class="right">${amt}</td>
+      <td class="right">${money(amtSigned)}</td>
       <td>
         <label><input type="checkbox" data-act="clr" data-id="${tx.id}" ${tx.cleared?"checked":""}> Cleared</label>
       </td>
@@ -386,7 +446,7 @@ function render(){
     tb.appendChild(tr);
   });
 
-  $("#running").textContent = money(running);
+  $("#running").textContent = acct? money(running) : "$0.00";
 
   tb.querySelectorAll("input[data-act='clr']").forEach(ch=>{
     ch.onchange=async()=>{ await updateDoc(doc(db,"fin_txns",ch.dataset.id),{cleared:ch.checked,updatedAt:serverTimestamp()}); };
@@ -408,4 +468,5 @@ function exportCsv(){
   const a=document.createElement("a"); a.href=url; a.download=`transactions_${$("#month").value}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 </script>
-</body></html>
+</body>
+</html>
