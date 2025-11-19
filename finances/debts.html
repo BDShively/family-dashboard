@@ -1,0 +1,276 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finances · Debt Dashboard</title>
+<link rel="stylesheet" href="/family-dashboard/css/base.css">
+<style>
+:root{--bg:#0b1220;--card:#111832;--muted:#9db1d1;--fg:#e6eefc;--line:#2b325a}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,Inter}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px}
+.card{background:#111832;border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--line);border-radius:10px;padding:8px}
+.btn{background:#0f1330;border:1px solid var(--line);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;text-decoration:none}
+.btn.danger{background:#2b0f14;border-color:#5a2b2b}
+.badge{padding:2px 8px;background:#0e1430;border:1px solid var(--line);border-radius:999px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.table th{color:var(--muted)}
+.right{text-align:right}
+.chart{width:100%;max-width:100%;aspect-ratio:16/6;background:#0f1330;border:1px solid var(--line);border-radius:12px}
+.small{font-size:12px;color:var(--muted)}
+</style>
+</head><body>
+<header>
+  <div class="row">
+    <a class="btn" href="/family-dashboard/finances/index.html">&larr; Finances</a>
+    <span class="badge">Debt Dashboard</span>
+  </div>
+  <div id="auth"></div>
+</header>
+
+<div id="err" class="card" style="display:none;background:#2a0f12;color:#ffd6d6;border-color:#5a2b2b"></div>
+
+<!-- Add / Edit account -->
+<div class="card">
+  <div class="row"><strong>Accounts</strong>
+    <button id="newAcct" class="btn">+ New Account</button>
+    <button id="exportHist" class="btn">Export History CSV</button>
+  </div>
+  <div id="acctForm" class="row" style="display:none;margin-top:10px;gap:8px">
+    <input id="a_name" placeholder="Account Name">
+    <input id="a_lender" placeholder="Lender">
+    <input id="a_apr" placeholder="APR %">
+    <input id="a_min" placeholder="Min Payment">
+    <input id="a_stmt" placeholder="Statement Day (1-31)">
+    <input id="a_due" placeholder="Due Day (1-31)">
+    <input id="a_notes" placeholder="Notes" style="min-width:260px">
+    <button id="a_save" class="btn">Save</button>
+    <button id="a_cancel" class="btn">Cancel</button>
+  </div>
+  <table class="table" id="acctTable" style="margin-top:10px">
+    <thead><tr><th>Name</th><th>Lender</th><th>APR</th><th>Min</th><th>Stmt/Due</th><th>Notes</th><th class="right">Actions</th></tr></thead>
+    <tbody id="acctRows"></tbody>
+  </table>
+</div>
+
+<!-- History + chart -->
+<div class="card">
+  <div class="row">
+    <label>Account
+      <select id="h_acct"></select>
+    </label>
+    <label>Date <input type="date" id="h_date"></label>
+    <label>Balance <input id="h_bal" placeholder="0.00"></label>
+    <button id="h_add" class="btn">Add Snapshot</button>
+  </div>
+  <div class="small" style="margin-top:6px">History collection: <code>fin_debts_history</code></div>
+  <svg id="chart" class="chart" viewBox="0 0 1000 380" preserveAspectRatio="none"></svg>
+  <table class="table" style="margin-top:10px">
+    <thead><tr><th>Date</th><th class="right">Balance</th><th class="right">Actions</th></tr></thead>
+    <tbody id="histRows"></tbody>
+  </table>
+</div>
+
+<script type="module">
+import { onAuthStateChanged, auth, signOutUser, db } from "/family-dashboard/js/firebase-init.js";
+import {
+  collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
+  getDocs, query, where, orderBy
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+const LOGIN="/family-dashboard/main/index.html";
+const $=s=>document.querySelector(s);
+const showErr=(m)=>{const el=$("#err"); if(m){el.textContent=m; el.style.display="block";} else {el.style.display="none"; el.textContent="";}};
+
+const state={ user:null, acctEditId:null, accts:[], hist:[] };
+
+onAuthStateChanged(auth,(u)=>{
+  if(!u){ location.href=LOGIN; return; }
+  state.user=u;
+  $("#auth").innerHTML=`<span class="badge">${u.email}</span> <a class="btn" href="#" id="so">Sign out</a>`;
+  $("#so").onclick=e=>{e.preventDefault();signOutUser();};
+  init();
+});
+
+function money(n){ const x=Number(n)||0; return "$"+x.toFixed(2); }
+function iso(d){ return new Date(d).toISOString().slice(0,10); }
+
+function init(){
+  $("#newAcct").onclick=()=>openAcctForm();
+  $("#a_cancel").onclick=closeAcctForm;
+  $("#a_save").onclick=saveAcct;
+  $("#h_add").onclick=addSnapshot;
+  $("#h_date").value=iso(new Date());
+  loadAccts();
+}
+
+async function loadAccts(){
+  try{
+    showErr("");
+    const snap=await getDocs(query(collection(db,"fin_debts_accounts"), where("owner","==",state.user.email), orderBy("name","asc")));
+    state.accts=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderAccts();
+    renderAcctSelect();
+    if(state.accts[0]) loadHist(state.accts[0].id);
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+function renderAccts(){
+  const tb=$("#acctRows"); tb.innerHTML="";
+  state.accts.forEach(a=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td>${esc(a.name)}</td>
+      <td>${esc(a.lender||"")}</td>
+      <td>${a.aprPct!=null? (Number(a.aprPct).toFixed(2)+"%"):""}</td>
+      <td>${a.min!=null? money(a.min):""}</td>
+      <td>${a.statementDay||"-"}/${a.dueDay||"-"}</td>
+      <td>${esc(a.notes||"")}</td>
+      <td class="right">
+        <button class="btn" data-act="edit" data-id="${a.id}">Edit</button>
+        <button class="btn danger" data-act="del" data-id="${a.id}">Delete</button>
+      </td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll("button[data-act='edit']").forEach(b=>{
+    b.onclick=()=>openAcctForm(state.accts.find(x=>x.id===b.dataset.id));
+  });
+  tb.querySelectorAll("button[data-act='del']").forEach(b=>{
+    b.onclick=()=>delAcct(b.dataset.id);
+  });
+}
+
+function renderAcctSelect(){
+  const sel=$("#h_acct"); sel.innerHTML="";
+  state.accts.forEach(a=>{
+    const o=document.createElement("option"); o.value=a.id; o.textContent=a.name; sel.appendChild(o);
+  });
+  sel.onchange=()=>loadHist(sel.value);
+  if(state.accts[0]) sel.value=state.accts[0].id;
+}
+
+function openAcctForm(a=null){
+  state.acctEditId=a?a.id:null;
+  $("#acctForm").style.display="flex";
+  $("#a_name").value=a?.name||"";
+  $("#a_lender").value=a?.lender||"";
+  $("#a_apr").value=a?.aprPct??"";
+  $("#a_min").value=a?.min??"";
+  $("#a_stmt").value=a?.statementDay??"";
+  $("#a_due").value=a?.dueDay??"";
+  $("#a_notes").value=a?.notes??"";
+}
+function closeAcctForm(){ $("#acctForm").style.display="none"; state.acctEditId=null; }
+
+async function saveAcct(){
+  try{
+    const payload={
+      owner: state.user.email,
+      name: $("#a_name").value.trim(),
+      lender: $("#a_lender").value.trim(),
+      aprPct: $("#a_apr").value===""? null:Number($("#a_apr").value),
+      min: $("#a_min").value===""? null:Number(String($("#a_min").value).replace(/[\$,]/g,"")),
+      statementDay: $("#a_stmt").value===""? null:Number($("#a_stmt").value),
+      dueDay: $("#a_due").value===""? null:Number($("#a_due").value),
+      notes: $("#a_notes").value.trim(),
+      updatedAt: serverTimestamp(),
+      createdAt: state.acctEditId? undefined : serverTimestamp()
+    };
+    if(!payload.name){ showErr("Name required."); return; }
+    if(state.acctEditId) await updateDoc(doc(db,"fin_debts_accounts",state.acctEditId),payload);
+    else await addDoc(collection(db,"fin_debts_accounts"),payload);
+    closeAcctForm(); await loadAccts();
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+async function delAcct(id){
+  if(!confirm("Delete this account? (History remains)")) return;
+  try{ await deleteDoc(doc(db,"fin_debts_accounts",id)); await loadAccts(); }catch(e){ showErr(e.message||String(e)); }
+}
+
+async function loadHist(acctId){
+  try{
+    showErr("");
+    const snap=await getDocs(query(
+      collection(db,"fin_debts_history"),
+      where("owner","==",state.user.email),
+      where("accountId","==",acctId),
+      orderBy("date","asc")
+    ));
+    state.hist=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderHist(); renderChart();
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+async function addSnapshot(){
+  try{
+    const acctId=$("#h_acct").value;
+    const date=$("#h_date").value;
+    const bal=Number(String($("#h_bal").value).replace(/[\$,]/g,""))||0;
+    if(!acctId||!date){ showErr("Account and date required."); return; }
+    await addDoc(collection(db,"fin_debts_history"),{
+      owner: state.user.email, accountId: acctId, date, balance: bal, createdAt: serverTimestamp()
+    });
+    $("#h_bal").value="";
+    await loadHist(acctId);
+  }catch(e){ showErr(e.message||String(e)); }
+}
+
+function renderHist(){
+  const tb=$("#histRows"); tb.innerHTML="";
+  state.hist.forEach(h=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${h.date}</td><td class="right">${money(h.balance||0)}</td>
+      <td class="right"><button class="btn danger" data-id="${h.id}">Delete</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll("button.btn.danger").forEach(b=>{
+    b.onclick=async()=>{ if(!confirm("Delete snapshot?")) return;
+      await deleteDoc(doc(db,"fin_debts_history",b.dataset.id));
+      await loadHist($("#h_acct").value);
+    };
+  });
+}
+
+/* Minimal SVG chart */
+function renderChart(){
+  const svg=$("#chart"); svg.innerHTML="";
+  const data=state.hist.map(h=>({x:new Date(h.date+"T00:00:00"), y:Number(h.balance)||0}));
+  if(data.length<2) return;
+  const W=1000,H=380, padL=50,padR=16,padT=16,padB=28;
+
+  const xs=data.map(p=>+p.x), ys=data.map(p=>p.y);
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+  const maxY=Math.max(...ys), minY=Math.min(...ys);
+  const yPad=(maxY-minY)*0.1||1;
+  const y0=minY - yPad, y1=maxY + yPad;
+
+  const xScale=t=> padL + ((t-minX)/(maxX-minX||1))*(W-padL-padR);
+  const yScale=v=> H-padB - ((v-y0)/(y1-y0||1))*(H-padT-padB);
+
+  // axes
+  const ax=document.createElementNS("http://www.w3.org/2000/svg","line");
+  ax.setAttribute("x1",padL); ax.setAttribute("x2",W-padR);
+  ax.setAttribute("y1",H-padB); ax.setAttribute("y2",H-padB);
+  ax.setAttribute("stroke","#2b325a"); svg.appendChild(ax);
+
+  // ticks
+  const steps=Math.max(1,Math.round((data.length-1)/5));
+  for(let i=0;i<data.length;i+=steps){
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",xScale(+data[i].x)); t.setAttribute("y",H-padB+16);
+    t.setAttribute("text-anchor","middle"); t.setAttribute("fill","#9db1d1"); t.setAttribute("font-size","10");
+    t.textContent=`${data[i].x.getMonth()+1}/${data[i].x.getDate()}`;
+    svg.appendChild(t);
+  }
+
+  // path
+  const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+  p.setAttribute("fill","none"); p.setAttribute("stroke","#6aa0ff"); p.setAttribute("stroke-width","2");
+  p.setAttribute("d", data.map((pt,i)=>`${i?"L":"M"}${xScale(+pt.x)},${yScale(pt.y)}`).join(" "));
+  svg.appendChild(p);
+}
+
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+</script>
+</body></html>
