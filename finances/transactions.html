@@ -12,6 +12,7 @@ a{color:inherit;text-decoration:none}
 header{display:flex;justify-content:space-between;align-items:center;padding:16px}
 .btn{background:#0f1330;border:1px solid var(--line);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;text-decoration:none}
 .btn.danger{background:#2b0f14;border-color:#5a2b2b}
+.btn.ghost{background:transparent;border:1px dashed var(--line);color:#9db1d1}
 .badge{padding:2px 8px;background:#0e1430;border:1px solid var(--line);border-radius:999px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -89,12 +90,13 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
   </div>
 </div>
 
-<!-- New Transaction -->
-<div class="card">
+<!-- New / Edit Transaction -->
+<div class="card" id="txCard">
   <div class="row" style="justify-content:space-between">
-    <strong>New Transaction</strong>
+    <strong id="txTitle">New Transaction</strong>
     <div class="row">
       <button id="txSave" class="btn">Save</button>
+      <button id="txCancelEdit" class="btn ghost" style="display:none">Cancel Edit</button>
       <button id="txClear" class="btn">Reset</button>
     </div>
   </div>
@@ -153,13 +155,12 @@ const $=s=>document.querySelector(s);
 function toast(msg, ok=false){
   const el=$("#toast");
   el.textContent=msg||"";
-  el.className = "toast " + (ok? "ok":"err");
-  if(!msg){ el.className="toast"; }
+  el.className = msg ? "toast " + (ok? "ok":"err") : "toast";
 }
 
-const state={ user:null, accts:[], txns:[], acctEditId:null };
+const state={ user:null, accts:[], txns:[], acctEditId:null, editTxnId:null };
 
-/* Local date helpers (avoid UTC drift) */
+/* Local date helpers */
 function localISO(d=new Date()){const tz=d.getTimezoneOffset()*60000;return new Date(d.getTime()-tz).toISOString().slice(0,10);}
 function todayISO(){return localISO();}
 function yyyymm(d){return localISO(d).slice(0,7);}
@@ -194,6 +195,7 @@ function init(){
   $("#t_type").onchange=toggleTransfer;
   $("#txSave").onclick=saveTxn;
   $("#txClear").onclick=resetTxnForm;
+  $("#txCancelEdit").onclick=exitEditMode;
 
   Promise.all([loadAccts(), loadTxns()]);
 }
@@ -202,13 +204,11 @@ function init(){
 async function loadAccts(){
   try{
     toast("");
-    // No orderBy here; sort client-side to avoid index requirement
     const snap=await getDocs(query(
       collection(db,"fin_accounts"),
       where("owner","==",state.user.email)
     ));
     state.accts=snap.docs.map(d=>({id:d.id,...d.data()}));
-    // client sort by name
     state.accts.sort((a,b)=>String(a.name||"").localeCompare(String(b.name||"")));
     renderAccts();
     renderAcctFilters();
@@ -272,7 +272,6 @@ function openAcctForm(a=null){
   $("#af_notes").value=a?.notes||"";
 }
 function closeAcctForm(){ $("#acctForm").style.display="none"; state.acctEditId=null; }
-
 async function saveAcct(){
   try{
     const payload={
@@ -305,6 +304,11 @@ function toggleTransfer(){
 }
 
 function resetTxnForm(){
+  state.editTxnId=null;
+  $("#txTitle").textContent="New Transaction";
+  $("#txSave").textContent="Save";
+  $("#txCancelEdit").style.display="none";
+
   $("#t_type").value="expense"; toggleTransfer();
   $("#t_date").value=todayISO();
   $("#t_account").selectedIndex=0;
@@ -315,11 +319,15 @@ function resetTxnForm(){
   $("#t_cleared").checked=false;
 }
 
+function exitEditMode(){
+  resetTxnForm();
+  toast("Edit cancelled", true);
+}
+
 async function loadTxns(){
   try{
     toast("");
     const month=$("#month").value;
-    // Prefer indexed query; if it fails, fall back to owner-only and filter client-side
     let txDocs=[];
     try{
       const snap=await getDocs(query(
@@ -329,8 +337,7 @@ async function loadTxns(){
         orderBy("date","asc"), orderBy("createdAt","asc")
       ));
       txDocs=snap.docs;
-    }catch(err){
-      // Fallback: fetch by owner, filter/sort client-side (no composite index needed)
+    }catch{
       const snap=await getDocs(query(
         collection(db,"fin_txns"),
         where("owner","==",state.user.email)
@@ -341,7 +348,6 @@ async function loadTxns(){
         if(da===db){ return (a.data().createdAt?.seconds||0)-(b.data().createdAt?.seconds||0); }
         return da<db? -1: 1;
       });
-      toast("Using fallback (create composite index for fin_txns to speed up).", true);
     }
     state.txns=txDocs.map(d=>({id:d.id,...d.data()}));
     render();
@@ -367,20 +373,28 @@ async function saveTxn(){
     if(!amount || amount<=0){ toast("Enter a positive amount."); return; }
 
     const payload={
-      owner: state.user.email, type, date, month, accountId, accountIdTo: type==="transfer"? accountIdTo:null,
+      owner: state.user.email, type, date, month, accountId,
+      accountIdTo: type==="transfer"? accountIdTo:null,
       amount, category: type==="transfer"? "Transfer": category|| (type==="income"?"Income":"Expense"),
-      notes, cleared, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+      notes, cleared, updatedAt: serverTimestamp()
     };
-    await addDoc(collection(db,"fin_txns"), payload);
+
+    if(state.editTxnId){
+      await updateDoc(doc(db,"fin_txns",state.editTxnId), payload);
+      toast("Transaction updated", true);
+    }else{
+      await addDoc(collection(db,"fin_txns"), { ...payload, createdAt: serverTimestamp() });
+      toast("Transaction saved", true);
+    }
+
     resetTxnForm();
     await loadTxns();
-    toast("Transaction saved", true);
   }catch(e){
     toast(e.message||String(e));
   }
 }
 
-/* Render */
+/* Render list with Edit support */
 function render(){
   const acctSel=$("#filterAcct").value;
   const status=$("#filterCleared").value;
@@ -411,7 +425,6 @@ function render(){
 
   const tb=$("#rows"); tb.innerHTML="";
   data.forEach(tx=>{
-    // compute delta for running when a single account is focused
     if(acct){
       if(tx.type==="income" && tx.accountId===acct.id) running += tx.amount;
       if(tx.type==="expense" && tx.accountId===acct.id) running -= tx.amount;
@@ -441,6 +454,7 @@ function render(){
       </td>
       <td>${esc(tx.notes||"")}</td>
       <td class="right">
+        <button class="btn" data-act="edit" data-id="${tx.id}">Edit</button>
         <button class="btn danger" data-act="del" data-id="${tx.id}">Delete</button>
       </td>`;
     tb.appendChild(tr);
@@ -454,19 +468,46 @@ function render(){
   tb.querySelectorAll("button[data-act='del']").forEach(b=>{
     b.onclick=async()=>{ if(!confirm("Delete transaction?"))return; await deleteDoc(doc(db,"fin_txns",b.dataset.id)); await loadTxns(); };
   });
+  tb.querySelectorAll("button[data-act='edit']").forEach(b=>{
+    b.onclick=()=>beginEdit(b.dataset.id);
+  });
+}
+
+function beginEdit(id){
+  const tx = state.txns.find(t=>t.id===id);
+  if(!tx) return;
+  state.editTxnId=id;
+  $("#txTitle").textContent="Edit Transaction";
+  $("#txSave").textContent="Update";
+  $("#txCancelEdit").style.display="inline-block";
+
+  $("#t_type").value = tx.type; toggleTransfer();
+  $("#t_date").value = tx.date;
+  $("#t_account").value = tx.accountId || "";
+  $("#t_accountTo").value = tx.accountIdTo || "";
+  $("#t_amount").value = String(tx.amount ?? "");
+  $("#t_cat").value = tx.type==="transfer" ? "" : (tx.category||"");
+  $("#t_notes").value = tx.notes||"";
+  $("#t_cleared").checked = !!tx.cleared;
+
+  // scroll to form
+  document.getElementById("txCard").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
 function acctName(id){ if(!id) return ""; const a=state.accts.find(x=>x.id===id); return a? a.name:""; }
 
 function exportCsv(){
-  const rows=[["Date","Type","Account","ToAccount","Amount","Category","Cleared","Notes","Month"]];
+  const rows=[["Date","Type","Account","ToAccount","Amount","Category","Cleared","Notes","Month","Id"]];
   state.txns.forEach(t=>{
-    rows.push([t.date,t.type,acctName(t.accountId)||"",acctName(t.accountIdTo)||"",t.amount,t.category||"",t.cleared?"Yes":"No",(t.notes||"").replace(/\n/g," "),t.month]);
+    rows.push([t.date,t.type,acctName(t.accountId)||"",acctName(t.accountIdTo)||"",t.amount,t.category||"",t.cleared?"Yes":"No",(t.notes||"").replace(/\n/g," "),t.month,t.id]);
   });
   const csv=rows.map(r=>r.map(c=>{const s=String(c??"");return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}).join(",")).join("\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob);
   const a=document.createElement("a"); a.href=url; a.download=`transactions_${$("#month").value}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
+
+// init empty form
+resetTxnForm();
 </script>
 </body>
 </html>
