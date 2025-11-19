@@ -1,3 +1,4 @@
+<!-- /family-dashboard/finances/debts.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -21,6 +22,9 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
 .chart{width:100%;max-width:100%;aspect-ratio:16/6;background:#0f1330;border:1px solid var(--line);border-radius:12px}
 .small{font-size:12px;color:var(--muted)}
 .tag{padding:2px 6px;border:1px solid var(--line);border-radius:8px;background:#0f1330;font-size:12px;color:var(--muted)}
+#toast{display:none;margin:0 12px;padding:8px 10px;border-radius:10px}
+#toast.ok{display:block;background:#0f2a1a;border:1px solid #2f6e4a;color:#d9ffea}
+#toast.err{display:block;background:#2a0f12;border:1px solid #6a2b2b;color:#ffd6d6}
 </style>
 </head>
 <body>
@@ -32,7 +36,7 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
   <div id="auth"></div>
 </header>
 
-<div id="err" class="card" style="display:none;background:#2a0f12;color:#ffd6d6;border-color:#5a2b2b"></div>
+<div id="toast"></div>
 
 <!-- Accounts -->
 <div class="card">
@@ -47,12 +51,20 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
     <input id="a_min" placeholder="Min Payment">
     <input id="a_stmt" placeholder="Statement Day (1-31)">
     <input id="a_due" placeholder="Due Day (1-31)">
+    <!-- NEW: Pay From Account selector -->
+    <select id="a_payfrom">
+      <option value="">Pay From Account…</option>
+    </select>
     <input id="a_notes" placeholder="Notes" style="min-width:260px">
     <button id="a_save" class="btn">Save</button>
     <button id="a_cancel" class="btn">Cancel</button>
   </div>
   <table class="table" id="acctTable" style="margin-top:10px">
-    <thead><tr><th>Name</th><th>Lender</th><th>APR</th><th>Min</th><th>Stmt/Due</th><th>Notes</th><th class="right">Actions</th></tr></thead>
+    <thead>
+      <tr>
+        <th>Name</th><th>Lender</th><th>APR</th><th>Min</th><th>Stmt/Due</th><th>Pay From</th><th>Notes</th><th class="right">Actions</th>
+      </tr>
+    </thead>
     <tbody id="acctRows"></tbody>
   </table>
 </div>
@@ -63,8 +75,7 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
     <label>Account
       <select id="h_acct"></select>
     </label>
-    <span class="tag" id="h_lender_badge">Lender: <b id="h_lender">—</b></span>
-
+    <span class="tag">Lender: <b id="h_lender">—</b></span>
     <label>Date <input type="date" id="h_date"></label>
     <label>Balance <input id="h_bal" placeholder="0.00"></label>
     <button id="h_add" class="btn">Add Snapshot</button>
@@ -86,9 +97,9 @@ import {
 
 const LOGIN="/family-dashboard/main/index.html";
 const $=s=>document.querySelector(s);
-const showErr=(m)=>{const el=$("#err"); if(m){el.textContent=m; el.style.display="block";} else {el.style.display="none"; el.textContent="";}};
+function toast(msg, ok=false){ const t=$("#toast"); t.textContent=msg||""; t.className = msg? ("ok"+(ok?"":"").replace("","") && ok ? "ok":"err") : ""; t.id="toast"; if(msg) t.className= ok? "ok":"err"; else t.removeAttribute("class"); }
 
-const state={ user:null, acctEditId:null, accts:[], hist:[] };
+const state={ user:null, acctEditId:null, accts:[], hist:[], payFromAccounts:[] };
 
 onAuthStateChanged(auth,(u)=>{
   if(!u){ location.href=LOGIN; return; }
@@ -100,7 +111,8 @@ onAuthStateChanged(auth,(u)=>{
 
 function money(n){ const x=Number(n)||0; return "$"+x.toFixed(2); }
 function iso(d){ const tz=new Date(d).getTimezoneOffset()*60000; return new Date(new Date(d).getTime()-tz).toISOString().slice(0,10); }
-function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+function numOrNull(v){ const s=String(v==null?"":v).trim(); if(s==="") return null; const n=Number(s.replace(/[\$,]/g,"")); return Number.isFinite(n)? n : null; }
 
 function init(){
   $("#newAcct").onclick=()=>openAcctForm();
@@ -108,25 +120,34 @@ function init(){
   $("#a_save").onclick=saveAcct;
   $("#h_add").onclick=addSnapshot;
   $("#h_date").value=iso(new Date());
-  loadAccts();
+  Promise.all([loadAccts(), loadPayFromAccounts()]);
 }
 
-/* Load accounts */
+/* Load "pay from" accounts for selector */
+async function loadPayFromAccounts(){
+  try{
+    const snap = await getDocs(query(collection(db,"fin_accounts"), where("owner","==",state.user.email)));
+    state.payFromAccounts = snap.docs.map(d=>({id:d.id, ...d.data()}))
+      .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||"")));
+  }catch(e){ toast(e.message||String(e)); }
+}
+
+/* Load debt accounts */
 async function loadAccts(){
   try{
-    showErr("");
     const snap=await getDocs(query(collection(db,"fin_debts_accounts"), where("owner","==",state.user.email), orderBy("name","asc")));
     state.accts=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderAccts();
     renderAcctSelect();
     if(state.accts[0]) loadHist(state.accts[0].id);
-  }catch(e){ showErr(e.message||String(e)); }
+  }catch(e){ toast(e.message||String(e)); }
 }
 
 /* Accounts table */
 function renderAccts(){
   const tb=$("#acctRows"); tb.innerHTML="";
   state.accts.forEach(a=>{
+    const payFrom = (state.payFromAccounts.find(p=>p.id===a.payFromAccountId)?.name) || "";
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td>${esc(a.name)}</td>
@@ -134,6 +155,7 @@ function renderAccts(){
       <td>${a.aprPct!=null? (Number(a.aprPct).toFixed(2)+"%"):""}</td>
       <td>${a.min!=null? money(a.min):""}</td>
       <td>${a.statementDay||"-"}/${a.dueDay||"-"}</td>
+      <td>${esc(payFrom)}</td>
       <td>${esc(a.notes||"")}</td>
       <td class="right">
         <button class="btn" data-act="edit" data-id="${a.id}">Edit</button>
@@ -160,33 +182,51 @@ function openAcctForm(a=null){
   $("#a_stmt").value=a?.statementDay??"";
   $("#a_due").value=a?.dueDay??"";
   $("#a_notes").value=a?.notes||"";
+  // populate pay-from select
+  const sel = document.getElementById("a_payfrom");
+  sel.innerHTML = '<option value="">Pay From Account…</option>' +
+    state.payFromAccounts.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  sel.value = a?.payFromAccountId || "";
 }
 function closeAcctForm(){ $("#acctForm").style.display="none"; state.acctEditId=null; }
 
 async function saveAcct(){
   try{
-    const payload={
+    const name = $("#a_name").value.trim();
+    if(!name){ toast("Name required", false); return; }
+
+    const payload = {
       owner: state.user.email,
-      name: $("#a_name").value.trim(),
-      lender: $("#a_lender").value.trim(),
-      aprPct: $("#a_apr").value===""? null:Number($("#a_apr").value),
-      min: $("#a_min").value===""? null:Number(String($("#a_min").value).replace(/[\$,]/g,"")),
-      statementDay: $("#a_stmt").value===""? null:Number($("#a_stmt").value),
-      dueDay: $("#a_due").value===""? null:Number($("#a_due").value),
-      notes: $("#a_notes").value.trim(),
-      updatedAt: serverTimestamp(),
-      createdAt: state.acctEditId? undefined : serverTimestamp()
+      name,
+      lender: $("#a_lender").value.trim() || "",
+      aprPct: numOrNull($("#a_apr").value),
+      min: numOrNull($("#a_min").value),
+      statementDay: numOrNull($("#a_stmt").value),
+      dueDay: numOrNull($("#a_due").value),
+      payFromAccountId: document.getElementById("a_payfrom").value || null,
+      notes: $("#a_notes").value.trim() || "",
+      updatedAt: serverTimestamp()
     };
-    if(!payload.name){ showErr("Name required."); return; }
-    if(state.acctEditId) await updateDoc(doc(db,"fin_debts_accounts",state.acctEditId),payload);
-    else await addDoc(collection(db,"fin_debts_accounts"),payload);
-    closeAcctForm(); await loadAccts();
-  }catch(e){ showErr(e.message||String(e)); }
+
+    if (state.acctEditId){
+      await updateDoc(doc(db,"fin_debts_accounts", state.acctEditId), payload);
+      toast("Account updated", true);
+    } else {
+      await addDoc(collection(db,"fin_debts_accounts"), { ...payload, createdAt: serverTimestamp() });
+      toast("Account created", true);
+    }
+
+    closeAcctForm();
+    await loadAccts();
+  }catch(e){
+    toast(e.message||String(e));
+  }
 }
 
 async function delAcct(id){
   if(!confirm("Delete this account? (History remains)")) return;
-  try{ await deleteDoc(doc(db,"fin_debts_accounts",id)); await loadAccts(); }catch(e){ showErr(e.message||String(e)); }
+  try{ await deleteDoc(doc(db,"fin_debts_accounts",id)); await loadAccts(); toast("Deleted", true); }
+  catch(e){ toast(e.message||String(e)); }
 }
 
 /* Account select + lender badge */
@@ -214,7 +254,6 @@ function renderAcctSelect(){
 /* Load history for selected account */
 async function loadHist(acctId){
   try{
-    showErr("");
     const snap=await getDocs(query(
       collection(db,"fin_debts_history"),
       where("owner","==",state.user.email),
@@ -223,7 +262,7 @@ async function loadHist(acctId){
     ));
     state.hist=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderHist(); renderChart();
-  }catch(e){ showErr(e.message||String(e)); }
+  }catch(e){ toast(e.message||String(e)); }
 }
 
 /* Add snapshot */
@@ -231,14 +270,15 @@ async function addSnapshot(){
   try{
     const acctId=$("#h_acct").value;
     const date=$("#h_date").value;
-    const bal=Number(String($("#h_bal").value).replace(/[\$,]/g,""))||0;
-    if(!acctId||!date){ showErr("Account and date required."); return; }
+    const bal=numOrNull($("#h_bal").value);
+    if(!acctId||!date||bal==null){ toast("Account, date, balance required", false); return; }
     await addDoc(collection(db,"fin_debts_history"),{
       owner: state.user.email, accountId: acctId, date, balance: bal, createdAt: serverTimestamp()
     });
     $("#h_bal").value="";
     await loadHist(acctId);
-  }catch(e){ showErr(e.message||String(e)); }
+    toast("Snapshot added", true);
+  }catch(e){ toast(e.message||String(e)); }
 }
 
 /* History table */
@@ -254,6 +294,7 @@ function renderHist(){
     b.onclick=async()=>{ if(!confirm("Delete snapshot?")) return;
       await deleteDoc(doc(db,"fin_debts_history",b.dataset.id));
       await loadHist($("#h_acct").value);
+      toast("Deleted", true);
     };
   });
 }
@@ -274,13 +315,11 @@ function renderChart(){
   const xScale=t=> padL + ((t-minX)/(maxX-minX||1))*(W-padL-padR);
   const yScale=v=> H-padB - ((v-y0)/(y1-y0||1))*(H-padT-padB);
 
-  // axis line
   const ax=document.createElementNS("http://www.w3.org/2000/svg","line");
   ax.setAttribute("x1",padL); ax.setAttribute("x2",W-padR);
   ax.setAttribute("y1",H-padB); ax.setAttribute("y2",H-padB);
   ax.setAttribute("stroke","#2b325a"); svg.appendChild(ax);
 
-  // x ticks ~6
   const steps=Math.max(1,Math.round((data.length-1)/5));
   for(let i=0;i<data.length;i+=steps){
     const t=document.createElementNS("http://www.w3.org/2000/svg","text");
@@ -290,7 +329,6 @@ function renderChart(){
     svg.appendChild(t);
   }
 
-  // path
   const p=document.createElementNS("http://www.w3.org/2000/svg","path");
   p.setAttribute("fill","none"); p.setAttribute("stroke","#6aa0ff"); p.setAttribute("stroke-width","2");
   p.setAttribute("d", data.map((pt,i)=>`${i?"L":"M"}${xScale(+pt.x)},${yScale(pt.y)}`).join(" "));
