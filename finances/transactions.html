@@ -157,11 +157,12 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
     </div>
     <div class="small">Collection: <code>fin_txns</code> · Accounts: <code>fin_accounts</code></div>
   </div>
+  <div class="small" id="rbHint" style="margin:6px 0 0 0"></div>
   <table class="table" style="margin-top:8px">
     <thead>
       <tr>
         <th>Date</th><th>Type</th><th>Account</th><th>Category / Transfer</th>
-        <th class="right">Amount</th><th>Cleared</th><th>Notes</th><th class="right">Actions</th>
+        <th class="right">Amount</th><th class="right">Balance</th><th>Cleared</th><th>Notes</th><th class="right">Actions</th>
       </tr>
     </thead>
     <tbody id="rows"></tbody>
@@ -198,7 +199,7 @@ function ymdFromMonthDay(monthStr, dayNum){
 }
 function money(n){const x=Number(n)||0;return (x<0? "-$":"$")+Math.abs(x).toFixed(2);}
 function parseAmt(v){return Number(String(v||"").replace(/[\$,]/g,""))||0;}
-function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
 function num(v){ const n = Number(String(v??"").replace(/[\$,]/g,"").trim()); return Number.isFinite(n)? n : 0; }
 
 onAuthStateChanged(auth,(u)=>{
@@ -241,7 +242,6 @@ async function loadAccountsForFilters(){
   const snap=await getDocs(query(collection(db,"fin_accounts"), where("owner","==",state.user.email)));
   const list = snap.docs.map(d=>({id:d.id,...d.data()}));
   state.accts = list.sort((a,b)=>String(a.name||"").localeCompare(String(b.name||"")));
-  // map for diagnostics
   state.payFromMap = Object.fromEntries(state.accts.map(a=>[a.id, a.name]));
   renderAcctFilters();
   renderTxnAcctSelects();
@@ -263,7 +263,6 @@ function renderTxnAcctSelects(){
 }
 
 function openAcctForm(a=null){
-  // simple inline creator for fin_accounts
   $("#acctForm").style.display="flex";
   $("#af_name").value=a?.name||"";
   $("#af_type").value=a?.type||"Checking";
@@ -391,7 +390,6 @@ async function generateDebtMinimums(){
     const debts = await loadDebts();
     if(!debts.length){ toast("No debts found.", false); return; }
 
-    // Existing for month
     const tsnap = await getDocs(query(
       collection(db,"fin_txns"),
       where("owner","==",state.user.email),
@@ -404,7 +402,6 @@ async function generateDebtMinimums(){
       const {ok, reason, min, dueDay, acctId, date} = debtReady(d, month);
       if(!ok){ skippedMissing++; continue; }
 
-      // duplicate if same month & exact debtAccountId OR same acct+date+amount+category prefix
       const dup = existing.find(x =>
         x.type==="expense" && x.month===month &&
         (x.debtAccountId===d.id ||
@@ -470,14 +467,12 @@ async function runDiagnostics(){
     tbody.appendChild(tr);
   });
 
-  // wire Create buttons
   tbody.querySelectorAll("button[data-act='force']").forEach(b=>{
     b.onclick=()=>forceCreateOne(b.dataset.id);
   });
 }
 
 async function loadDebts(){
-  // pull debts and include pay-from account name
   const dsnap = await getDocs(query(
     collection(db,"fin_debts_accounts"),
     where("owner","==",state.user.email)
@@ -511,16 +506,12 @@ async function forceCreateOne(debtId){
     const r = debtReady(d, month);
     if(!r.ok){ toast(r.reason||"Not ready", false); return; }
 
-    // check duplicate by debtAccountId for this month
     const tsnap = await getDocs(query(
       collection(db,"fin_txns"),
       where("owner","==",state.user.email),
       where("month","==",month)
     ));
-    const dup = tsnap.docs.find(x=>{
-      const t=x.data();
-      return t.debtAccountId===d.id;
-    });
+    const dup = tsnap.docs.find(x=>x.data().debtAccountId===d.id);
     if(dup){ toast("Already exists for this month.", false); return; }
 
     const cat   = `Debt Min: ${d.name||"Account"}`;
@@ -548,7 +539,7 @@ async function forceCreateOne(debtId){
   }
 }
 
-/* Render list with Edit support */
+/* Render list with per-row Running Balance */
 function render(){
   const acctSel=$("#filterAcct").value;
   const status=$("#filterCleared").value;
@@ -572,29 +563,38 @@ function render(){
 
   $("#counts").textContent=`${data.length} shown · ${state.txns.length} total`;
 
-  // Running balance per selected account
   let running=0;
   const acct = acctSel==="all" ? null : state.accts.find(a=>a.id===acctSel);
   if(acct){ running = Number(acct.startingBalance||0); }
+  $("#rbHint").textContent = acct ? "" : "Select a single Account to compute per-transaction running balance.";
 
   const tb=$("#rows"); tb.innerHTML="";
   data.forEach(tx=>{
+    // signed amount for display
+    let amtSigned;
     if(acct){
-      if(tx.type==="income" && tx.accountId===acct.id) running += tx.amount;
-      if(tx.type==="expense" && tx.accountId===acct.id) running -= tx.amount;
-      if(tx.type==="transfer"){
-        if(tx.accountId===acct.id) running -= tx.amount;
-        if(tx.accountIdTo===acct.id) running += tx.amount;
+      // update running for this row based on the selected account's perspective
+      if(tx.type==="income" && tx.accountId===acct.id) { running += tx.amount; amtSigned = tx.amount; }
+      else if(tx.type==="expense" && tx.accountId===acct.id) { running -= tx.amount; amtSigned = -tx.amount; }
+      else if(tx.type==="transfer"){
+        if(tx.accountId===acct.id){ running -= tx.amount; amtSigned = -tx.amount; }
+        else if(tx.accountIdTo===acct.id){ running += tx.amount; amtSigned = tx.amount; }
+        else { amtSigned = 0; }
+      } else {
+        amtSigned = 0;
       }
+    } else {
+      // All accounts: show income positive, expense negative, transfer 0 (ambiguous)
+      if(tx.type==="income") amtSigned = tx.amount;
+      else if(tx.type==="expense") amtSigned = -tx.amount;
+      else amtSigned = 0;
     }
 
     const cat = tx.type==="transfer"
       ? `Transfer: ${esc(acctName(tx.accountId)||"?")} → ${esc(acctName(tx.accountIdTo)||"?")}`
       : esc(tx.category||"");
 
-    const amtSigned =
-      (tx.type==="income" || (tx.type==="transfer" && acct && tx.accountIdTo===acct.id))
-        ? tx.amount : -tx.amount;
+    const balanceCell = acct ? money(running) : "—";
 
     const tr=document.createElement("tr");
     tr.innerHTML=`
@@ -603,6 +603,7 @@ function render(){
       <td>${esc(acctName(tx.accountId)||"")}${tx.type==="transfer" && acctSel==="all" ? ` → ${esc(acctName(tx.accountIdTo)||"")}`:""}</td>
       <td>${cat}</td>
       <td class="right">${money(amtSigned)}</td>
+      <td class="right">${balanceCell}</td>
       <td>
         <label><input type="checkbox" data-act="clr" data-id="${tx.id}" ${tx.cleared?"checked":""}> Cleared</label>
       </td>
