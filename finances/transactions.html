@@ -70,24 +70,30 @@ input,select,textarea{background:#0f1330;color:#e6eefc;border:1px solid var(--li
   </table>
 </div>
 
-<!-- Filters -->
+<!-- Filters + Generate -->
 <div class="card">
-  <div class="row">
-    <label>Month <input id="month" type="month"></label>
-    <label>Account
-      <select id="filterAcct"><option value="all">All</option></select>
-    </label>
-    <label>Status
-      <select id="filterCleared">
-        <option value="all">All</option>
-        <option value="uncleared">Uncleared</option>
-        <option value="cleared">Cleared</option>
-      </select>
-    </label>
-    <label>Search <input id="search" placeholder="payee, notes, category"></label>
-    <button id="exportCsv" class="btn">Export CSV</button>
-    <span id="counts" class="tag">—</span>
+  <div class="row" style="justify-content:space-between">
+    <div class="row">
+      <label>Month <input id="month" type="month"></label>
+      <label>Account
+        <select id="filterAcct"><option value="all">All</option></select>
+      </label>
+      <label>Status
+        <select id="filterCleared">
+          <option value="all">All</option>
+          <option value="uncleared">Uncleared</option>
+          <option value="cleared">Cleared</option>
+        </select>
+      </label>
+      <label>Search <input id="search" placeholder="payee, notes, category"></label>
+      <button id="exportCsv" class="btn">Export CSV</button>
+      <span id="counts" class="tag">—</span>
+    </div>
+    <div class="row">
+      <button id="genDebtMins" class="btn">Generate Debt Minimums</button>
+    </div>
   </div>
+  <div class="small">Reads <code>fin_debts_accounts</code> (Min, Due Day, Pay From) → creates <code>fin_txns</code> for this month if missing.</div>
 </div>
 
 <!-- New / Edit Transaction -->
@@ -164,6 +170,14 @@ const state={ user:null, accts:[], txns:[], acctEditId:null, editTxnId:null };
 function localISO(d=new Date()){const tz=d.getTimezoneOffset()*60000;return new Date(d.getTime()-tz).toISOString().slice(0,10);}
 function todayISO(){return localISO();}
 function yyyymm(d){return localISO(d).slice(0,7);}
+function ymdFromMonthDay(monthStr, dayNum){
+  const [y,m]=monthStr.split("-").map(n=>+n);
+  const d = new Date(y, m-1, Math.min(dayNum, 28)); // safe default
+  // clamp to actual month length
+  const last = new Date(y, m, 0).getDate();
+  d.setDate(Math.min(dayNum, last));
+  return localISO(d);
+}
 function money(n){const x=Number(n)||0;return (x<0? "-$":"$")+Math.abs(x).toFixed(2);}
 function parseAmt(v){return Number(String(v||"").replace(/[\$,]/g,""))||0;}
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
@@ -196,6 +210,9 @@ function init(){
   $("#txSave").onclick=saveTxn;
   $("#txClear").onclick=resetTxnForm;
   $("#txCancelEdit").onclick=exitEditMode;
+
+  // generator
+  $("#genDebtMins").onclick=generateDebtMinimums;
 
   Promise.all([loadAccts(), loadTxns()]);
 }
@@ -394,6 +411,70 @@ async function saveTxn(){
   }
 }
 
+/* Generate debt minimums into fin_txns */
+async function generateDebtMinimums(){
+  try{
+    const month=$("#month").value;
+    // Load debts
+    const dsnap = await getDocs(query(
+      collection(db,"fin_debts_accounts"),
+      where("owner","==",state.user.email)
+    ));
+    const debts = dsnap.docs.map(d=>({id:d.id, ...d.data()}));
+
+    if(!debts.length){ toast("No debts found in Debt Dashboard.", false); return; }
+
+    // Load existing txns for month (to avoid duplicates)
+    const tsnap = await getDocs(query(
+      collection(db,"fin_txns"),
+      where("owner","==",state.user.email),
+      where("month","==",month)
+    ));
+    const existing = tsnap.docs.map(d=>({id:d.id, ...d.data()}));
+
+    let created=0, skipped=0;
+    for(const d of debts){
+      const min = Number(d.min||0);
+      const dueDay = Number(d.dueDay||0);
+      const acctId = d.payFromAccountId || null;
+      if(!min || !dueDay || !acctId){ skipped++; continue; }
+
+      const date = ymdFromMonthDay(month, dueDay);
+      // consider it duplicate if same owner+month+date+accountId+amount and category starts with "Debt Min:"
+      const dup = existing.find(x =>
+        x.type==="expense" &&
+        x.accountId===acctId &&
+        x.date===date &&
+        Number(x.amount)===min &&
+        String(x.category||"").startsWith("Debt Min:")
+      );
+      if(dup){ skipped++; continue; }
+
+      const cat = `Debt Min: ${d.name||"Account"}`;
+      const notes = d.lender ? `Auto-generated min for ${d.lender}` : `Auto-generated min`;
+
+      await addDoc(collection(db,"fin_txns"),{
+        owner: state.user.email,
+        type: "expense",
+        date, month,
+        accountId: acctId,
+        accountIdTo: null,
+        amount: min,
+        category: cat,
+        notes,
+        cleared: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      created++;
+    }
+    await loadTxns();
+    toast(`Debt minimums: created ${created}, skipped ${skipped}`, true);
+  }catch(e){
+    toast(e.message||String(e));
+  }
+}
+
 /* Render list with Edit support */
 function render(){
   const acctSel=$("#filterAcct").value;
@@ -490,7 +571,6 @@ function beginEdit(id){
   $("#t_notes").value = tx.notes||"";
   $("#t_cleared").checked = !!tx.cleared;
 
-  // scroll to form
   document.getElementById("txCard").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
